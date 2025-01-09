@@ -152,5 +152,6 @@ app.get("/allproducts", async (req, res) => {
 });
 
 // Server setup
-const PORT = process.env.PORT || 5000; // Define PORT here
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`)); // Keep only one app.listen call
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
