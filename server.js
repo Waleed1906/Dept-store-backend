@@ -165,7 +165,3 @@ app.get('/newproducts', async (req,res)=>{
 // Server setup
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-<<<<<<< HEAD
-=======
-
->>>>>>> f09b331718c035db5bccc796a14813672d45e26e
