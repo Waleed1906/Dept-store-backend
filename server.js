@@ -145,11 +145,22 @@ app.post("/removeproduct", async (req, res) => {
 
 // get all products
 
-app.get("/allproducts", async (req, res) => {
+app.get('/allproducts', async (req, res) => {
   let products = await Product.find({});
   console.log("All Products Fetched");
   res.send(products);
 });
+
+//get new products end point
+
+app.get('/newproducts', async (req,res)=>{
+  let products = await Product.find({});
+  let newproducts = products.slice(1).slice(-8);
+  console.log("New Products Fetched");
+  res.send(newproducts);
+})
+
+
 
 // Server setup
 const PORT = process.env.PORT || 5000;
