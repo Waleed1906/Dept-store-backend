@@ -40,9 +40,8 @@ router.post('/login', async (req, res) => {
 
 
 //protected jwt route
-router.get('/protected', auth, (req, res) => {
-  res.json({ message: 'Welcome to the protected route!', user: req.user });
+router.get("/protected", auth, (req, res) => {
+  res.json({ message: "Welcome to the protected route!", user: req.user });
 });
-
 
 module.exports = router;
