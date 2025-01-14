@@ -2,7 +2,9 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
 const authRoutes = require("./routes/auth");
+const cartRoutes = require("./routes/CartRoutes");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
@@ -28,8 +30,13 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.log(err));
 
-// Routes
+// Auth Routes
 app.use("/api/auth", authRoutes);
+
+
+// Cart Routes
+
+app.use("/api/cart", cartRoutes);
 
 app.get("/", (req, res) => {
   res.send("Express App is Running");
@@ -145,7 +152,7 @@ app.post("/removeproduct", async (req, res) => {
 
 // get all products
 
-app.get('/allproducts', async (req, res) => {
+app.get("/allproducts", async (req, res) => {
   let products = await Product.find({});
   console.log("All Products Fetched");
   res.send(products);
@@ -153,14 +160,12 @@ app.get('/allproducts', async (req, res) => {
 
 //get new products end point
 
-app.get('/newproducts', async (req,res)=>{
+app.get("/newproducts", async (req, res) => {
   let products = await Product.find({});
   let newproducts = products.slice(1).slice(-8);
   console.log("New Products Fetched");
   res.send(newproducts);
-})
-
-
+});
 
 // Server setup
 const PORT = process.env.PORT || 5000;
