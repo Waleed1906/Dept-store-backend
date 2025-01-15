@@ -180,7 +180,44 @@ app.get('/allproducts', async (req, res) => {
     });
   }
 });
+// Endpoint for Our Latest Items (one latest item per category)
+app.get('/LatestItems', async (req, res) => {
+  try {
+    // Fetch all products and sort by date in descending order
+    let products = await Product.find({}).sort({ date: -1 });
 
+    // Create a map to hold the latest product for each category
+    let latestItemsByCategory = new Map();
+
+    // Iterate through products and store only one product per category
+    products.forEach((product) => {
+      if (!latestItemsByCategory.has(product.category)) {
+        latestItemsByCategory.set(product.category, product);
+      }
+    });
+
+    // Convert the map values to an array to send in the response
+    let latestItems = Array.from(latestItemsByCategory.values());
+
+    console.log("Latest Items by Category Fetched");
+    res.send(latestItems);
+  } catch (error) {
+    console.error("Error fetching latest items:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching latest items",
+    });
+  }
+});
+
+//Endpoint for Popular in Fruits and Vegetables
+app.get('/popularinvegetables', async (req,res) => {
+
+  let products = await Product.find({category:"Fruits_Vegetables"});
+  let popularinvegetables = products.slice(0,3);
+  console.log("Popular in Fruits and Vegeatbles is Fetched");
+  res.send(popularinvegetables);
+})
 // Get new products
 app.get('/newproducts', async (req,res) => {
   try {
