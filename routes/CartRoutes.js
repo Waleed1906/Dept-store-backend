@@ -10,10 +10,10 @@ router.post("/api/add-to-cart", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    let cart = await Cart.findOne({ userId });
+    let cart = await cart.findOne({ userId });
 
     if (!cart) {
-      cart = new Cart({
+      cart = new cart({
         userId,
         items: [{ productId, quantity, price }],
         totalPrice: quantity * price,
