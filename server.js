@@ -33,7 +33,6 @@ mongoose
 // Auth Routes
 app.use("/api/auth", authRoutes);
 
-
 // Cart Routes
 
 app.use("/api/cart", cartRoutes);
