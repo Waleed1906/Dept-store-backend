@@ -16,10 +16,15 @@ const app = express();
 
 dotenv.config();
 
+app.use(cors());
+
 // Middleware setup
 app.use(express.json());
 app.use(bodyParser.json());
-app.use(cors());
+
+// Use Routes
+app.use("/auth", authRoutes); // Add auth routes
+app.use("/cart", cartRoutes); // Add cart routes
 
 // MongoDB connection
 mongoose
