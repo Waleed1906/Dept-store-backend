@@ -10,7 +10,7 @@ const multer = require("multer");
 const path = require("path");
 const cors = require("cors");
 const { log } = require("console");
-
+const uploadDir = path.join(__dirname, 'uploads');
 // Initialize Express app
 const app = express();
 
@@ -48,7 +48,7 @@ app.get("/", (req, res) => {
 
 // Image Storage Engine
 const storage = multer.diskStorage({
-  destination: "./upload/images",
+  destination: uploadDir,
   filename: (req, file, cb) => {
     return cb(
       null,
@@ -60,7 +60,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Static folder for images
-app.use("/images", express.static("upload/images"));
+app.use("/images", express.static(uploadDir));
 
 // Upload endpoint for images
 app.post("/upload", upload.single("product"), (req, res) => {
@@ -110,15 +110,9 @@ const Product = mongoose.model("product", {
 
 app.post("/addproduct", async (req, res) => {
   try {
-    let products = await Product.find({});
-    let id;
-    if (products.length > 0) {
-      let last_product_array = products.slice(-1);
-      let last_product = last_product_array[0];
-      id = last_product.id + 1;
-    } else {
-      id = 1;
-    }
+    let last_product = await Product.findOne().sort({ id: -1 });
+    let id = last_product ? last_product.id + 1 : 1;
+
     const product = new Product({
       id: id,
       name: req.body.name,
@@ -144,31 +138,104 @@ app.post("/addproduct", async (req, res) => {
 });
 
 // Delete Product Endpoint
+app.post("/removeproduct/:id", async (req, res) => {
+  try {
+    const productId = req.params.id;
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is missing",
+      });
+    }
 
-app.post("/removeproduct", async (req, res) => {
-  await Product.findOneAndDelete({ id: req.body.id });
-  console.log("Removed");
-  res.json({
-    success: true,
-    name: req.body.name,
-  });
+    const deletedProduct = await Product.findOneAndDelete({ id: productId });
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    console.log("Removed", deletedProduct);
+    res.json({
+      success: true,
+      message: "Product removed successfully",
+      name: deletedProduct.name,
+    });
+  } catch (error) {
+    console.error("Error removing product:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error occurred while removing the product",
+    });
+  }
 });
 
-// get all products
+// Get all products
+app.get('/allproducts', async (req, res) => {
+  try {
+    let products = await Product.find({});
+    console.log("All Products Fetched");
+    res.send(products);
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching products",
+    });
+  }
+});
+// Endpoint for Our Latest Items (one latest item per category)
+app.get('/LatestItems', async (req, res) => {
+  try {
+    // Fetch all products and sort by date in descending order
+    let products = await Product.find({}).sort({ date: -1 });
 
-app.get("/allproducts", async (req, res) => {
-  let products = await Product.find({});
-  console.log("All Products Fetched");
-  res.send(products);
+    // Create a map to hold the latest product for each category
+    let latestItemsByCategory = new Map();
+
+    // Iterate through products and store only one product per category
+    products.forEach((product) => {
+      if (!latestItemsByCategory.has(product.category)) {
+        latestItemsByCategory.set(product.category, product);
+      }
+    });
+
+    // Convert the map values to an array to send in the response
+    let latestItems = Array.from(latestItemsByCategory.values());
+
+    console.log("Latest Items by Category Fetched");
+    res.send(latestItems);
+  } catch (error) {
+    console.error("Error fetching latest items:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching latest items",
+    });
+  }
 });
 
-//get new products end point
+//Endpoint for Popular in Fruits and Vegetables
+app.get('/popularinvegetables', async (req,res) => {
 
-app.get("/newproducts", async (req, res) => {
-  let products = await Product.find({});
-  let newproducts = products.slice(1).slice(-8);
-  console.log("New Products Fetched");
-  res.send(newproducts);
+  let products = await Product.find({category:"Fruits_Vegetables"});
+  let popularinvegetables = products.slice(0,3);
+  console.log("Popular in Fruits and Vegeatbles is Fetched");
+  res.send(popularinvegetables);
+})
+// Get new products
+app.get('/newproducts', async (req,res) => {
+  try {
+    let newproducts = await Product.find().sort({ date: -1 }).limit(8);
+    console.log("New Products Fetched");
+    res.send(newproducts);
+  } catch (error) {
+    console.error("Error fetching new products:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching new products",
+    });
+  }
 });
 
 // Server setup
