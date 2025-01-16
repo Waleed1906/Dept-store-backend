@@ -24,7 +24,7 @@ app.use(bodyParser.json());
 
 // Use Routes
 app.use("/auth", authRoutes); // Add auth routes
-app.use("/cart", cartRoutes); // Add cart routes
+app.use("/api/cart", cartRoutes); // Add cart routes
 
 // MongoDB connection
 mongoose

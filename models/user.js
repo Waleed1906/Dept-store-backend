@@ -1,20 +1,11 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const Cart = require("./cart");
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  cart: {
-    items: [
-      {
-        productId: { type: String, required: true },
-        quantity: { type: Number, default: 1 },
-        price: { type: Number, required: true },
-      },
-    ],
-    totalPrice: { type: Number, default: 0 },
-  },
 });
 
 // Hash password before saving
