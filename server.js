@@ -8,6 +8,7 @@ const cartRoutes = require("./routes/CartRoutes");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
+const auth = require("./middlewares/auth");
 const cors = require("cors");
 const { log } = require("console");
 const uploadDir = path.join(__dirname, 'uploads');
@@ -167,7 +168,7 @@ app.post("/removeproduct/:id", async (req, res) => {
 });
 
 // Get all products
-app.get('/allproducts', async (req, res) => {
+app.get('/allproducts', auth, async (req, res) => {
   try {
     let products = await Product.find({});
     console.log("All Products Fetched");
