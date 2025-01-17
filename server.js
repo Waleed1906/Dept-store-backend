@@ -4,13 +4,14 @@ const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
 const authRoutes = require("./routes/auth");
-const cartRoutes = require("./routes/CartRoutes");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
+const auth = require("./middlewares/auth");
 const cors = require("cors");
 const { log } = require("console");
 const uploadDir = path.join(__dirname, "uploads");
+const user = require("./models/user");
 // Initialize Express app
 const app = express();
 
@@ -38,9 +39,7 @@ mongoose
 // Auth Routes
 app.use("/api/auth", authRoutes);
 
-// Cart Routes
 
-app.use("/api/cart", cartRoutes);
 
 app.get("/", (req, res) => {
   res.send("AhsanAli,Abdullah Rabi,WaleedJaved");
@@ -172,8 +171,9 @@ app.post("/removeproduct/:id", async (req, res) => {
 });
 
 // Get all products
-app.get("/allproducts", async (req, res) => {
-  try {
+
+app.get('/allproducts',  async (req, res) => {
+try {
     let products = await Product.find({});
     console.log("All Products Fetched");
     res.send(products);
