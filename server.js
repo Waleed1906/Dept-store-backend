@@ -24,9 +24,6 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
-router.get("/protected", auth, (req, res) => {
-  res.json({ message: "Welcome to the protected route!", user: req.user });
-});
 
 // Use Routes
 app.use("/auth", authRoutes); // Add auth routes
@@ -240,6 +237,10 @@ app.get("/newproducts", async (req, res) => {
       message: "Error fetching new products",
     });
   }
+});
+
+app.get('/api/auth/protected', auth, (req, res) => {
+  res.status(200).json({ message: "Token is valid", user: req.user });
 });
 
 // Server setup
