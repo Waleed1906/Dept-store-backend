@@ -9,10 +9,12 @@ module.exports = (req, res, next) => {
   }
 
   try {
+    console.log("Token received:", token); // Add this line for debugging
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded.user;
+    req.user = decoded;
     next();
   } catch (err) {
+    console.error("Token verification error:", err); // Add this line for debugging
     return res.status(400).json({ message: "Invalid token", err });
   }
 };
