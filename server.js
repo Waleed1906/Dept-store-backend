@@ -10,7 +10,7 @@ const multer = require("multer");
 const path = require("path");
 const cors = require("cors");
 const { log } = require("console");
-const uploadDir = path.join(__dirname, 'uploads');
+const uploadDir = path.join(__dirname, "uploads");
 // Initialize Express app
 const app = express();
 
@@ -43,7 +43,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/cart", cartRoutes);
 
 app.get("/", (req, res) => {
-  res.send("Express App is Running");
+  res.send("AhsanAli,Abdullah Rabi,WaleedJaved");
 });
 
 // Image Storage Engine
@@ -172,7 +172,7 @@ app.post("/removeproduct/:id", async (req, res) => {
 });
 
 // Get all products
-app.get('/allproducts', async (req, res) => {
+app.get("/allproducts", async (req, res) => {
   try {
     let products = await Product.find({});
     console.log("All Products Fetched");
@@ -186,7 +186,7 @@ app.get('/allproducts', async (req, res) => {
   }
 });
 // Endpoint for Our Latest Items (one latest item per category)
-app.get('/LatestItems', async (req, res) => {
+app.get("/LatestItems", async (req, res) => {
   try {
     // Fetch all products and sort by date in descending order
     let products = await Product.find({}).sort({ date: -1 });
@@ -216,15 +216,14 @@ app.get('/LatestItems', async (req, res) => {
 });
 
 //Endpoint for Popular in Fruits and Vegetables
-app.get('/popularinvegetables', async (req,res) => {
-
-  let products = await Product.find({category:"Fruits_Vegetables"});
-  let popularinvegetables = products.slice(0,3);
+app.get("/popularinvegetables", async (req, res) => {
+  let products = await Product.find({ category: "Fruits_Vegetables" });
+  let popularinvegetables = products.slice(0, 3);
   console.log("Popular in Fruits and Vegeatbles is Fetched");
   res.send(popularinvegetables);
-})
+});
 // Get new products
-app.get('/newproducts', async (req,res) => {
+app.get("/newproducts", async (req, res) => {
   try {
     let newproducts = await Product.find().sort({ date: -1 }).limit(8);
     console.log("New Products Fetched");
