@@ -12,6 +12,7 @@ const cors = require("cors");
 const { log } = require("console");
 const uploadDir = path.join(__dirname, "uploads");
 const user = require("./models/user");
+const router = express.Router();
 // Initialize Express app
 const app = express();
 
@@ -23,9 +24,13 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
+router.get("/protected", auth, (req, res) => {
+  res.json({ message: "Welcome to the protected route!", user: req.user });
+});
+
 // Use Routes
 app.use("/auth", authRoutes); // Add auth routes
-app.use("/api/cart", cartRoutes); // Add cart routes
+// app.use("/api/cart", cartRoutes); // Add cart routes
 
 // MongoDB connection
 mongoose
@@ -39,10 +44,10 @@ mongoose
 // Auth Routes
 app.use("/api/auth", authRoutes);
 
-
-
 app.get("/", (req, res) => {
-  res.send("AhsanAli,Abdullah Rabi,WaleedJaved");
+  res.send(
+    "AhsanAli-BSCS-F20-280,AbdullahRabi-BSCS-F20-316,WaleedJaved-BSCS-F20-337"
+  );
 });
 
 // Image Storage Engine
@@ -172,8 +177,8 @@ app.post("/removeproduct/:id", async (req, res) => {
 
 // Get all products
 
-app.get('/allproducts',  async (req, res) => {
-try {
+app.get("/allproducts", async (req, res) => {
+  try {
     let products = await Product.find({});
     console.log("All Products Fetched");
     res.send(products);
