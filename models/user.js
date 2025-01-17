@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const Cart = require("./cart");
+// const Cart = require("./cart");
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
