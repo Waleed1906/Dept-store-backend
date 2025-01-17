@@ -32,7 +32,7 @@ Accept: application/json
 GET http://localhost:5000/api/auth/protected
 Content-Type: application/json
 Accept: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ODk1MzJjMTE5OTBlMTE1M2MxZmVjMyIsImlhdCI6MTczNzA4OTAyNCwiZXhwIjoxNzM3MDkyNjI0fQ.fw-mVZMAPFZmba63bSdeYr1ksGnR2gRD_KdwRiG6gFA
+Authorization: Bearer 
 
 ### add products
 
