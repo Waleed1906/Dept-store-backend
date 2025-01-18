@@ -32,7 +32,8 @@ Accept: application/json
 GET http://localhost:5000/api/auth/protected
 Content-Type: application/json
 Accept: application/json
-Authorization: Bearer 
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGI4ZTlhMmIwYjE3N2E5YzllOTRlNSIsImlhdCI6MTczNzIwMDM4NX0.9Pyqqrflsn5KXIvkzNfWut05UqC0RLE2OmF3k3DbTl0
+
 
 ### add products
 
@@ -60,9 +61,15 @@ Accept: application/json
 
 
 ### get products
+# GET http://localhost:5000/allproducts
+# Content-Type: application/json
+# Accept: application/json
+
+
 GET http://localhost:5000/allproducts
 Content-Type: application/json
 Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGI4ZTlhMmIwYjE3N2E5YzllOTRlNSIsImlhdCI6MTczNzE5OTMzMSwiZXhwIjoxNzM3MjAyOTMxfQ.AXTvaNiAUfTi-x9fMAH8eq9EPWcAhsK0Zk6L9421Tz0
 
 
 
