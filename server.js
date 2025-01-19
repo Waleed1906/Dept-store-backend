@@ -10,7 +10,7 @@ const path = require("path");
 const auth = require("./middlewares/auth");
 const cors = require("cors");
 const fs = require("fs");
-
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const uploadDir = path.join(__dirname, "uploads");
 const user = require("./models/user");
 
@@ -22,11 +22,23 @@ app.use(cors());
 // Middleware setup
 app.use(express.json());
 app.use(bodyParser.json());
+// Cloudinary configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+// Multer-Cloudinary storage engine
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "products", // Folder name in Cloudinary where images will be stored
+    format: async (req, file) => "png", // Supports jpg, png, etc.
+    public_id: (req, file) => `${file.fieldname}_${Date.now()}`, // Unique public ID for each image
+  },
+});
 
-// Ensure the uploads directory exists
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const upload = multer({ storage: storage });
 
 // MongoDB connection
 mongoose
@@ -49,32 +61,11 @@ app.get("/", (req, res) => {
   );
 });
 
-// Image Storage Engine
-const storage = multer.diskStorage({
-  destination: uploadDir,
-  filename: (req, file, cb) => {
-    return cb(
-      null,
-      `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`
-    );
-  },
-});
 
-const upload = multer({ storage: storage });
 
-// Static folder for images
-app.use("/images", express.static(uploadDir));
 
-// Upload endpoint for images
-app.post("/upload", upload.single("product"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, message: "Image upload failed" });
-  }
-  res.json({
-    success: 1,
-    image_url: `https://dept-store-backend-idke.vercel.app/images/${req.file.filename}`,
-  });
-});
+
+
 
 // Product Schema
 const Product = mongoose.model("product", {
@@ -112,8 +103,8 @@ const Product = mongoose.model("product", {
   },
 });
 
-// Add Product Endpoint
-app.post("/addproduct", async (req, res) => {
+/// Add product with image upload to Cloudinary
+app.post("/addproduct", upload.single("product"), async (req, res) => {
   try {
     let last_product = await Product.findOne().sort({ id: -1 });
     let id = last_product ? last_product.id + 1 : 1;
@@ -121,7 +112,7 @@ app.post("/addproduct", async (req, res) => {
     const product = new Product({
       id: id,
       name: req.body.name,
-      image: req.body.image,
+      image: req.file.path, // Use the Cloudinary URL for the image
       category: req.body.category,
       new_price: req.body.new_price,
       old_price: req.body.old_price,
