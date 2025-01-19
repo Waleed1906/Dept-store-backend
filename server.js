@@ -67,7 +67,7 @@ app.use("/images", express.static(uploadDir));
 app.post("/upload", upload.single("product"), (req, res) => {
   res.json({
     success: 1,
-    image_url: `http://localhost:5000/images/${req.file.filename}`,
+    image_url: `https://dept-store-backend-idke.vercel.app/images/${req.file.filename}`,
   });
 });
 
