@@ -9,25 +9,24 @@ const multer = require("multer");
 const path = require("path");
 const auth = require("./middlewares/auth");
 const cors = require("cors");
-const { log } = require("console");
+const fs = require("fs");
+
 const uploadDir = path.join(__dirname, "uploads");
 const user = require("./models/user");
-const router = express.Router();
+
 // Initialize Express app
 const app = express();
-
 dotenv.config();
-
 app.use(cors());
 
 // Middleware setup
 app.use(express.json());
 app.use(bodyParser.json());
 
-
-// Use Routes
-app.use("/auth", authRoutes); // Add auth routes
-// app.use("/api/cart", cartRoutes); // Add cart routes
+// Ensure the uploads directory exists
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // MongoDB connection
 mongoose
@@ -36,11 +35,14 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.log(err));
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+  });
 
-// Auth Routes
-app.use("/api/auth", authRoutes);
+// Use Routes
+app.use("/api/auth", authRoutes); // Only keep one route for auth
 
+// Root route
 app.get("/", (req, res) => {
   res.send(
     "AhsanAli-BSCS-F20-280,AbdullahRabi-BSCS-F20-316,WaleedJaved-BSCS-F20-337"
@@ -65,6 +67,9 @@ app.use("/images", express.static(uploadDir));
 
 // Upload endpoint for images
 app.post("/upload", upload.single("product"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "Image upload failed" });
+  }
   res.json({
     success: 1,
     image_url: `https://dept-store-backend-idke.vercel.app/images/${req.file.filename}`,
@@ -108,7 +113,6 @@ const Product = mongoose.model("product", {
 });
 
 // Add Product Endpoint
-
 app.post("/addproduct", async (req, res) => {
   try {
     let last_product = await Product.findOne().sort({ id: -1 });
@@ -173,12 +177,11 @@ app.post("/removeproduct/:id", async (req, res) => {
 });
 
 // Get all products
-
-app.get("/allproducts",  async (req, res) => {
+app.get("/allproducts", async (req, res) => {
   try {
     let products = await Product.find({});
     console.log("All Products Fetched");
-    res.send(products);
+    res.json(products);
   } catch (error) {
     console.error("Error fetching products:", error);
     res.status(500).json({
@@ -187,6 +190,7 @@ app.get("/allproducts",  async (req, res) => {
     });
   }
 });
+
 // Endpoint for Our Latest Items (one latest item per category)
 app.get("/LatestItems", async (req, res) => {
   try {
@@ -207,7 +211,7 @@ app.get("/LatestItems", async (req, res) => {
     let latestItems = Array.from(latestItemsByCategory.values());
 
     console.log("Latest Items by Category Fetched");
-    res.send(latestItems);
+    res.json(latestItems);
   } catch (error) {
     console.error("Error fetching latest items:", error);
     res.status(500).json({
@@ -217,19 +221,28 @@ app.get("/LatestItems", async (req, res) => {
   }
 });
 
-//Endpoint for Popular in Fruits and Vegetables
+// Endpoint for Popular in Fruits and Vegetables
 app.get("/popularinvegetables", async (req, res) => {
-  let products = await Product.find({ category: "Fruits_Vegetables" });
-  let popularinvegetables = products.slice(0, 3);
-  console.log("Popular in Fruits and Vegeatbles is Fetched");
-  res.send(popularinvegetables);
+  try {
+    let products = await Product.find({ category: "Fruits_Vegetables" });
+    let popularinvegetables = products.slice(0, 3);
+    console.log("Popular in Fruits and Vegetables Fetched");
+    res.json(popularinvegetables);
+  } catch (error) {
+    console.error("Error fetching popular vegetables:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching popular vegetables",
+    });
+  }
 });
+
 // Get new products
 app.get("/newproducts", async (req, res) => {
   try {
     let newproducts = await Product.find().sort({ date: -1 }).limit(8);
     console.log("New Products Fetched");
-    res.send(newproducts);
+    res.json(newproducts);
   } catch (error) {
     console.error("Error fetching new products:", error);
     res.status(500).json({
@@ -239,7 +252,8 @@ app.get("/newproducts", async (req, res) => {
   }
 });
 
-app.get('/api/auth/protected', auth, (req, res) => {
+// Protected Route Example
+app.get("/api/auth/protected", auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
 });
 

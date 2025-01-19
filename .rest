@@ -1,43 +1,42 @@
 ### get user
-GET http://localhost:5000
+GET https://dept-store-backend-idke.vercel.app
 Content-Type: application/json
 
 
 
 ### Register User
-POST http://localhost:5000/api/auth/register
+POST https://dept-store-backend-idke.vercel.app/api/auth/register
 Content-Type: application/json
 Accept: application/json
 
 {
-  "email": "test123@gmail.com",
-  "name": "hassan",
+  "email": "test12@gmail.com",
+  "name": "ali",
   "password": "12345"
 }
 
 
 ### Login User
 
-POST http://localhost:5000/api/auth/login
+POST https://dept-store-backend-idke.vercel.app/api/auth/login
 Content-Type: application/json
 Accept: application/json
 
 {
-  "email": "test123@gmail.com",
+  "email": "test12@gmail.com",
   "password": "12345"
 }
 
 ### Token Authorization
 
-GET http://localhost:5000/api/auth/protected
+GET https://dept-store-backend-idke.vercel.app/api/auth/protected
 Content-Type: application/json
 Accept: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGI4ZTlhMmIwYjE3N2E5YzllOTRlNSIsImlhdCI6MTczNzIwMDM4NX0.9Pyqqrflsn5KXIvkzNfWut05UqC0RLE2OmF3k3DbTl0
-
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGJjMmViZmU4N2QzZGJkMTEyYmIzYSIsImlhdCI6MTczNzIxMjY2MH0.q312-U2icj8MaYPWappenuuyvs4XPl7YyVvAsgZPLfo
 
 ### add products
 
-POST http://localhost:5000/addproduct
+POST https://dept-store-backend-idke.vercel.app/addproduct
 Content-Type: application/json
 Accept: application/json
 
@@ -49,24 +48,8 @@ Accept: application/json
   "image": "https://www.google.com"
 }
 
-### remove products
-POST http://localhost:5000/removeproduct
-Content-Type: application/json
-Accept: application/json
-
-{
-  "name": "product1"
-  
-}
-
-
-### get products
-# GET http://localhost:5000/allproducts
-# Content-Type: application/json
-# Accept: application/json
-
-
-GET http://localhost:5000/allproducts
+### get all products
+GET https://dept-store-backend-idke.vercel.app/allproducts
 Content-Type: application/json
 Accept: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGI4ZTlhMmIwYjE3N2E5YzllOTRlNSIsImlhdCI6MTczNzE5OTMzMSwiZXhwIjoxNzM3MjAyOTMxfQ.AXTvaNiAUfTi-x9fMAH8eq9EPWcAhsK0Zk6L9421Tz0
