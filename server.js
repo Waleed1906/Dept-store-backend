@@ -13,21 +13,21 @@ const { log } = require("console");
 const uploadDir = path.join(__dirname, "uploads");
 const user = require("./models/user");
 const router = express.Router();
+
 // Initialize Express app
 const app = express();
 
 dotenv.config();
 
+// CORS middleware setup
 app.use(cors());
 
 // Middleware setup
 app.use(express.json());
 app.use(bodyParser.json());
 
-
 // Use Routes
-app.use("/auth", authRoutes); // Add auth routes
-// app.use("/api/cart", cartRoutes); // Add cart routes
+app.use("/auth", authRoutes);
 
 // MongoDB connection
 mongoose
@@ -65,9 +65,10 @@ app.use("/images", express.static(uploadDir));
 
 // Upload endpoint for images
 app.post("/upload", upload.single("product"), (req, res) => {
+  const imageUrl = `${req.protocol}://${req.get('host')}/images/${req.file.filename}`;
   res.json({
     success: 1,
-    image_url: `http://localhost:5000/images/${req.file.filename}`,
+    image_url: imageUrl,
   });
 });
 
@@ -108,7 +109,6 @@ const Product = mongoose.model("product", {
 });
 
 // Add Product Endpoint
-
 app.post("/addproduct", async (req, res) => {
   try {
     let last_product = await Product.findOne().sort({ id: -1 });
@@ -173,8 +173,7 @@ app.post("/removeproduct/:id", async (req, res) => {
 });
 
 // Get all products
-
-app.get("/allproducts",  async (req, res) => {
+app.get("/allproducts", async (req, res) => {
   try {
     let products = await Product.find({});
     console.log("All Products Fetched");
@@ -187,23 +186,19 @@ app.get("/allproducts",  async (req, res) => {
     });
   }
 });
+
 // Endpoint for Our Latest Items (one latest item per category)
 app.get("/LatestItems", async (req, res) => {
   try {
-    // Fetch all products and sort by date in descending order
     let products = await Product.find({}).sort({ date: -1 });
-
-    // Create a map to hold the latest product for each category
     let latestItemsByCategory = new Map();
 
-    // Iterate through products and store only one product per category
     products.forEach((product) => {
       if (!latestItemsByCategory.has(product.category)) {
         latestItemsByCategory.set(product.category, product);
       }
     });
 
-    // Convert the map values to an array to send in the response
     let latestItems = Array.from(latestItemsByCategory.values());
 
     console.log("Latest Items by Category Fetched");
@@ -217,13 +212,14 @@ app.get("/LatestItems", async (req, res) => {
   }
 });
 
-//Endpoint for Popular in Fruits and Vegetables
+// Endpoint for Popular in Fruits and Vegetables
 app.get("/popularinvegetables", async (req, res) => {
   let products = await Product.find({ category: "Fruits_Vegetables" });
   let popularinvegetables = products.slice(0, 3);
-  console.log("Popular in Fruits and Vegeatbles is Fetched");
+  console.log("Popular in Fruits and Vegetables is Fetched");
   res.send(popularinvegetables);
 });
+
 // Get new products
 app.get("/newproducts", async (req, res) => {
   try {
@@ -239,6 +235,7 @@ app.get("/newproducts", async (req, res) => {
   }
 });
 
+// Protected Route Example
 app.get('/api/auth/protected', auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
 });
