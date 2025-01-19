@@ -9,36 +9,25 @@ const multer = require("multer");
 const path = require("path");
 const auth = require("./middlewares/auth");
 const cors = require("cors");
-const fs = require("fs");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const { log } = require("console");
 const uploadDir = path.join(__dirname, "uploads");
 const user = require("./models/user");
-
+const router = express.Router();
 // Initialize Express app
 const app = express();
+
 dotenv.config();
+
 app.use(cors());
 
 // Middleware setup
 app.use(express.json());
 app.use(bodyParser.json());
-// Cloudinary configuration
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-// Multer-Cloudinary storage engine
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "products", // Folder name in Cloudinary where images will be stored
-    format: async (req, file) => "png", // Supports jpg, png, etc.
-    public_id: (req, file) => `${file.fieldname}_${Date.now()}`, // Unique public ID for each image
-  },
-});
 
-const upload = multer({ storage: storage });
+
+// Use Routes
+app.use("/auth", authRoutes); // Add auth routes
+// app.use("/api/cart", cartRoutes); // Add cart routes
 
 // MongoDB connection
 mongoose
@@ -47,25 +36,40 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-  });
+  .catch((err) => console.log(err));
 
-// Use Routes
-app.use("/api/auth", authRoutes); // Only keep one route for auth
+// Auth Routes
+app.use("/api/auth", authRoutes);
 
-// Root route
 app.get("/", (req, res) => {
   res.send(
     "AhsanAli-BSCS-F20-280,AbdullahRabi-BSCS-F20-316,WaleedJaved-BSCS-F20-337"
   );
 });
 
+// Image Storage Engine
+const storage = multer.diskStorage({
+  destination: uploadDir,
+  filename: (req, file, cb) => {
+    return cb(
+      null,
+      `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`
+    );
+  },
+});
 
+const upload = multer({ storage: storage });
 
+// Static folder for images
+app.use("/images", express.static(uploadDir));
 
-
-
+// Upload endpoint for images
+app.post("/upload", upload.single("product"), (req, res) => {
+  res.json({
+    success: 1,
+    image_url: `https://dept-store-backend-idke.vercel.app/images/${req.file.filename}`,
+  });
+});
 
 // Product Schema
 const Product = mongoose.model("product", {
@@ -103,8 +107,9 @@ const Product = mongoose.model("product", {
   },
 });
 
-/// Add product with image upload to Cloudinary
-app.post("/addproduct", upload.single("product"), async (req, res) => {
+// Add Product Endpoint
+
+app.post("/addproduct", async (req, res) => {
   try {
     let last_product = await Product.findOne().sort({ id: -1 });
     let id = last_product ? last_product.id + 1 : 1;
@@ -112,7 +117,7 @@ app.post("/addproduct", upload.single("product"), async (req, res) => {
     const product = new Product({
       id: id,
       name: req.body.name,
-      image: req.file.path, // Use the Cloudinary URL for the image
+      image: req.body.image,
       category: req.body.category,
       new_price: req.body.new_price,
       old_price: req.body.old_price,
@@ -168,11 +173,12 @@ app.post("/removeproduct/:id", async (req, res) => {
 });
 
 // Get all products
-app.get("/allproducts", async (req, res) => {
+
+app.get("/allproducts",  async (req, res) => {
   try {
     let products = await Product.find({});
     console.log("All Products Fetched");
-    res.json(products);
+    res.send(products);
   } catch (error) {
     console.error("Error fetching products:", error);
     res.status(500).json({
@@ -181,7 +187,6 @@ app.get("/allproducts", async (req, res) => {
     });
   }
 });
-
 // Endpoint for Our Latest Items (one latest item per category)
 app.get("/LatestItems", async (req, res) => {
   try {
@@ -202,7 +207,7 @@ app.get("/LatestItems", async (req, res) => {
     let latestItems = Array.from(latestItemsByCategory.values());
 
     console.log("Latest Items by Category Fetched");
-    res.json(latestItems);
+    res.send(latestItems);
   } catch (error) {
     console.error("Error fetching latest items:", error);
     res.status(500).json({
@@ -212,28 +217,19 @@ app.get("/LatestItems", async (req, res) => {
   }
 });
 
-// Endpoint for Popular in Fruits and Vegetables
+//Endpoint for Popular in Fruits and Vegetables
 app.get("/popularinvegetables", async (req, res) => {
-  try {
-    let products = await Product.find({ category: "Fruits_Vegetables" });
-    let popularinvegetables = products.slice(0, 3);
-    console.log("Popular in Fruits and Vegetables Fetched");
-    res.json(popularinvegetables);
-  } catch (error) {
-    console.error("Error fetching popular vegetables:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching popular vegetables",
-    });
-  }
+  let products = await Product.find({ category: "Fruits_Vegetables" });
+  let popularinvegetables = products.slice(0, 3);
+  console.log("Popular in Fruits and Vegeatbles is Fetched");
+  res.send(popularinvegetables);
 });
-
 // Get new products
 app.get("/newproducts", async (req, res) => {
   try {
     let newproducts = await Product.find().sort({ date: -1 }).limit(8);
     console.log("New Products Fetched");
-    res.json(newproducts);
+    res.send(newproducts);
   } catch (error) {
     console.error("Error fetching new products:", error);
     res.status(500).json({
@@ -243,8 +239,7 @@ app.get("/newproducts", async (req, res) => {
   }
 });
 
-// Protected Route Example
-app.get("/api/auth/protected", auth, (req, res) => {
+app.get('/api/auth/protected', auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
 });
 
