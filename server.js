@@ -6,6 +6,7 @@ const nodemailer = require("nodemailer");
 const authRoutes = require("./routes/auth");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const auth = require("./middlewares/auth");
 const cors = require("cors");
@@ -24,10 +25,8 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
-
 // Use Routes
 app.use("/auth", authRoutes); // Add auth routes
-// app.use("/api/cart", cartRoutes); // Add cart routes
 
 // MongoDB connection
 mongoose
@@ -67,7 +66,7 @@ app.use("/images", express.static(uploadDir));
 app.post("/upload", upload.single("product"), (req, res) => {
   res.json({
     success: 1,
-    image_url: `http://localhost:5000/images/${req.file.filename}`,
+    image_url: `https://dept-store-backend-idke.vercel.app/images/${req.file.filename}`,
   });
 });
 
@@ -174,7 +173,7 @@ app.post("/removeproduct/:id", async (req, res) => {
 
 // Get all products
 
-app.get("/allproducts",  async (req, res) => {
+app.get("/allproducts", async (req, res) => {
   try {
     let products = await Product.find({});
     console.log("All Products Fetched");
@@ -239,7 +238,7 @@ app.get("/newproducts", async (req, res) => {
   }
 });
 
-app.get('/api/auth/protected', auth, (req, res) => {
+app.get("/api/auth/protected", auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
 });
 
