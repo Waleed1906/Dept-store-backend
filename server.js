@@ -17,11 +17,7 @@ const user = require("./models/user");
 // Initialize Express app
 const app = express();
 dotenv.config();
-// Use CORS middleware
-app.use(cors({
-  origin: 'http://localhost:5173',  // Allow requests from this specific origin
-  methods: 'GET, POST, PUT, DELETE', // Specify allowed methods
-}));
+app.use(cors());
 
 // Middleware setup
 app.use(express.json());
