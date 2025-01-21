@@ -11,7 +11,7 @@ const auth = require("./middlewares/auth");
 const cors = require("cors");
 const fs = require("fs");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("cloudinary").v4; // Import Cloudinary
+const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user");
 
 // Initialize Express app
