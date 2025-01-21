@@ -17,7 +17,7 @@ const user = require("./models/user");
 // Initialize Express app
 const app = express();
 dotenv.config();
-app.use(cors());
+// app.use(cors());
 
 // Middleware setup
 app.use(express.json());
