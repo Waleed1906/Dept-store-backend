@@ -10,8 +10,8 @@ const path = require("path");
 const auth = require("./middlewares/auth");
 const cors = require("cors");
 const fs = require("fs");
-
-const uploadDir = path.join(__dirname, "uploads");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user");
 
 // Initialize Express app
@@ -22,11 +22,6 @@ app.use(cors());
 // Middleware setup
 app.use(express.json());
 app.use(bodyParser.json());
-
-// Ensure the uploads directory exists
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 // MongoDB connection
 mongoose
@@ -40,7 +35,7 @@ mongoose
   });
 
 // Use Routes
-app.use("/api/auth", authRoutes); // Only keep one route for auth
+app.use("/api/auth", authRoutes);
 
 // Root route
 app.get("/", (req, res) => {
@@ -49,30 +44,35 @@ app.get("/", (req, res) => {
   );
 });
 
-// Image Storage Engine
-const storage = multer.diskStorage({
-  destination: uploadDir,
-  filename: (req, file, cb) => {
-    return cb(
-      null,
-      `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`
-    );
+// Cloudinary configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, // Your Cloudinary cloud name
+  api_key: process.env.CLOUDINARY_API_KEY, // Your Cloudinary API key
+  api_secret: process.env.CLOUDINARY_API_SECRET, // Your Cloudinary API secret
+});
+
+// Set up Cloudinary storage engine
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "product_images", // Cloudinary folder where images will be saved
+    format: async (req, file) => path.extname(file.originalname).substring(1), // Automatically determine the file format
+    public_id: (req, file) => `${file.fieldname}_${Date.now()}`, // Set file name
   },
 });
 
 const upload = multer({ storage: storage });
-
-// Static folder for images
-app.use("/images", express.static(uploadDir));
 
 // Upload endpoint for images
 app.post("/upload", upload.single("product"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: "Image upload failed" });
   }
+
+  // Cloudinary URL is automatically provided by req.file.path
   res.json({
     success: 1,
-    image_url: `https://dept-store-backend-idke.vercel.app/images/${req.file.filename}`,
+    image_url: req.file.path, // Cloudinary URL for the uploaded image
   });
 });
 
@@ -141,7 +141,6 @@ app.post("/addproduct", async (req, res) => {
     });
   }
 });
-
 // Delete Product Endpoint
 app.post("/removeproduct/:id", async (req, res) => {
   try {
@@ -153,6 +152,7 @@ app.post("/removeproduct/:id", async (req, res) => {
       });
     }
 
+    // Find the product to get the image URL
     const deletedProduct = await Product.findOneAndDelete({ id: productId });
     if (!deletedProduct) {
       return res.status(404).json({
@@ -161,7 +161,23 @@ app.post("/removeproduct/:id", async (req, res) => {
       });
     }
 
-    console.log("Removed", deletedProduct);
+    // Extract the public ID from the Cloudinary image URL
+    const imageUrl = deletedProduct.image;
+    const publicId = imageUrl.split('/').pop().split('.')[0]; // Extract the public ID from the URL
+
+    // Delete the image from Cloudinary
+    await cloudinary.uploader.destroy(`product_images/${publicId}`, (error, result) => {
+      if (error) {
+        console.error("Cloudinary image deletion error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Error deleting image from Cloudinary",
+        });
+      }
+      console.log("Image deleted from Cloudinary:", result);
+    });
+
+    console.log("Product and image removed:", deletedProduct);
     res.json({
       success: true,
       message: "Product removed successfully",
@@ -175,6 +191,7 @@ app.post("/removeproduct/:id", async (req, res) => {
     });
   }
 });
+
 
 // Get all products
 app.get("/allproducts", async (req, res) => {
@@ -194,20 +211,16 @@ app.get("/allproducts", async (req, res) => {
 // Endpoint for Our Latest Items (one latest item per category)
 app.get("/LatestItems", async (req, res) => {
   try {
-    // Fetch all products and sort by date in descending order
     let products = await Product.find({}).sort({ date: -1 });
 
-    // Create a map to hold the latest product for each category
     let latestItemsByCategory = new Map();
 
-    // Iterate through products and store only one product per category
     products.forEach((product) => {
       if (!latestItemsByCategory.has(product.category)) {
         latestItemsByCategory.set(product.category, product);
       }
     });
 
-    // Convert the map values to an array to send in the response
     let latestItems = Array.from(latestItemsByCategory.values());
 
     console.log("Latest Items by Category Fetched");
