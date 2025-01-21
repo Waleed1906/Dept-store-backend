@@ -5,7 +5,15 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
+<<<<<<< HEAD
     "cloudinary": "^1.41.3",
+=======
+<<<<<<< HEAD
+    "cloudinary": "^1.41.3",
+=======
+    "cloudinary": "^2.5.1",
+>>>>>>> 2a0fb230b69d5535842366ee66efa719c3225082
+>>>>>>> 5d8daa1e611ce0e025effca03e5e8f4bbb619a95
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
