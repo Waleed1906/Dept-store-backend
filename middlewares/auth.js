@@ -11,12 +11,18 @@ module.exports = (req, res, next) => {
   try {
     console.log("Token received:", token); // Add this line for debugging
     const decoded = jwt.verify(token, "abc");
-    console.log(decoded,"dfdf")
+
+    // Remove 'iat' from decoded token if needed
+    delete decoded.iat;
+
+   
+    
+    // You can pass the modified decoded token to the next middleware/route handler
     req.user = decoded;
-    next();
+
+    next(); // Proceed to the next middleware or route
   } catch (err) {
     console.error("Token verification error:", err); // Add this line for debugging
     return res.status(400).json({ message: "Invalid token", err });
   }
 };
-

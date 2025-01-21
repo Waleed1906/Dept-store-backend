@@ -264,6 +264,10 @@ app.get("/newproducts", async (req, res) => {
     });
   }
 });
+app.post("/addtocart", auth, async (req, res) => {
+  console.log(req.body, req.user);
+
+})
 
 // Protected Route Example
 app.get("/api/auth/protected", auth, (req, res) => {
