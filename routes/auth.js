@@ -15,7 +15,7 @@ router.post('/register', async (req, res) => {
     
     let cart = {};
     for (let i = 1; i < 300; i++) {
-      cart[i]=1;
+      cart[i]=0;
       
     }
     const newUser = new User({ name, email, password, cartData:cart,  });
