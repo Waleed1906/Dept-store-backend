@@ -264,10 +264,27 @@ app.get("/newproducts", async (req, res) => {
     });
   }
 });
+// Endpoint for Add to Cart save data to MongoDB
 app.post("/addtocart", auth, async (req, res) => {
-  console.log(req.body, req.user);
+  console.log("Added",req.body.itemId);
+  let userData = await user.findOne({_id:req.user.id});
+  userData.cartData[req.body.itemId] += 1;
+  await user.findOneAndUpdate({_id:req.user.id},{cartData:userData.cartData});
+  res.send("Added")
 
 })
+
+// Endpoint for Remove from Cart save data to MongoDB
+app.post("/removetocart", auth, async (req, res) => {
+  console.log("removed",req.body.itemId);
+  let userData = await user.findOne({_id:req.user.id});
+  if(userData.cartData[req.body.itemId]>0)
+  userData.cartData[req.body.itemId] -= 1;
+  await user.findOneAndUpdate({_id:req.user.id},{cartData:userData.cartData});
+  res.send("Removed")
+
+})
+
 
 // Protected Route Example
 app.get("/api/auth/protected", auth, (req, res) => {

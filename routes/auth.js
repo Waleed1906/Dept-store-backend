@@ -14,8 +14,8 @@ router.post('/register', async (req, res) => {
     if (userExists) return res.status(400).json({ message: 'User already exists' });
     
     let cart = {};
-    for (let i = 0; i < 300; i++) {
-      cart[i]=0;
+    for (let i = 1; i < 300; i++) {
+      cart[i]=1;
       
     }
     const newUser = new User({ name, email, password, cartData:cart,  });

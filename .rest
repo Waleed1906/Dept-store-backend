@@ -32,7 +32,7 @@ Accept: application/json
 GET https://dept-store-backend-idke.vercel.app/api/auth/protected
 Content-Type: application/json
 Accept: application/json
-Authorization: BearereyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGJjMmViZmU4N2QzZGJkMTEyYmIzYSIsImlhdCI6MTczNzMwOTM4Nn0.CzWQu5mDCFnleMxWjNaPXA8H2XCYHok9KbrFYpH3h10
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGJjMmViZmU4N2QzZGJkMTEyYmIzYSIsImlhdCI6MTczNzU2OTk3N30.7bUFYzrPJEpk0CxHLV8EsF9lyeUw_t4nUv1n9XgUUjY
 
 ### add products
 
