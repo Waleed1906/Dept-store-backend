@@ -10,7 +10,8 @@ module.exports = (req, res, next) => {
 
   try {
     console.log("Token received:", token); // Add this line for debugging
-    const decoded = jwt.verify(token, "abc");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
 
     // Remove 'iat' from decoded token if needed
     delete decoded.iat;

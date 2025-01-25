@@ -284,8 +284,14 @@ app.post("/removetocart", auth, async (req, res) => {
   res.send("Removed")
 
 })
+// Enpoint to get Cartdata
 
+app.post("/getcart", auth, async (req, res) => {
+  console.log("GetCart");
+  let userData = await user.findOne({_id:req.user.id});
+  res.json(userData.cartData);
 
+})
 // Protected Route Example
 app.get("/api/auth/protected", auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
