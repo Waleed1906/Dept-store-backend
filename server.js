@@ -13,17 +13,17 @@ const fs = require("fs");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user");
+
+// Initialize Express app
+const app = express();
+dotenv.config();
+app.use(cors());
 app.use(cors({
   origin: 'http://localhost:5173', // Allow requests from your frontend's URL
   methods: 'GET,POST,PUT,DELETE',  // Specify the allowed HTTP methods
   credentials: true,  // Allow cookies and headers
   origin: 'http://localhost:3000',  
 }));
-// Initialize Express app
-const app = express();
-dotenv.config();
-app.use(cors());
-
 // Middleware setup
 app.use(express.json());
 app.use(bodyParser.json());
