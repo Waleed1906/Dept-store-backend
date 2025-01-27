@@ -13,10 +13,7 @@ const fs = require("fs");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user");
-app.use(cors({
-  origin: '*', // Allow only this origin
-  credentials: true                 // Allow cookies or other credentials
-}));
+
 // Initialize Express app
 const app = express();
 dotenv.config();
