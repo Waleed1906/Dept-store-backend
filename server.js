@@ -302,6 +302,37 @@ app.post("/getcart", auth, async (req, res) => {
   res.json(userData.cartData);
 
 })
+// Endpoint for Add to Cart save data to MongoDB
+app.post("/updatecart", auth, async (req, res) => {
+  try {
+    const { itemId, quantity } = req.body;
+
+    // Find the user by their ID
+    let userData = await user.findOne({ _id: req.user.id });
+    
+    // Ensure cartData exists
+    if (!userData.cartData) {
+      return res.status(400).json({ message: "Cart data not found." });
+    }
+
+    // Check if the item exists in the cart
+    if (!(itemId in userData.cartData)) {
+      return res.status(404).json({ message: "Item not found in the cart." });
+    }
+
+    // Update the item's quantity in the cart
+    userData.cartData[itemId] = quantity;
+
+    // Save the updated cart data to the database
+    await user.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
+
+    res.json({ message: "Cart updated successfully." });
+  } catch (error) {
+    console.error("Error updating cart:", error);
+    res.status(500).json({ message: "Server error. Unable to update cart." });
+  }
+});
+
 // Protected Route Example
 app.get("/api/auth/protected", auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
