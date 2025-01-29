@@ -13,13 +13,21 @@ const fs = require("fs");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user");
-
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000'];
 // Initialize Express app
 const app = express();
 dotenv.config();
-app.use(cors());
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173']
+  origin: function (origin, callback) {
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
 }));
 // Middleware setup
 app.use(express.json());
