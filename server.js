@@ -8,7 +8,7 @@ const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
 const auth = require("./middlewares/auth");
-
+const cors = require('cors');
 const fs = require("fs");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2; // Import Cloudinary
@@ -17,7 +17,11 @@ const user = require("./models/user");
 // Initialize Express app
 const app = express();
 dotenv.config();
-
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'], // Add both allowed origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+  credentials: true, // If you're using cookies, authorization headers, etc.
+}));
 
 // Middleware setup
 app.use(express.json());
