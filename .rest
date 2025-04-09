@@ -1,11 +1,11 @@
 ### get user
-GET https://dept-store-backend-idke.vercel.app
+GET https://dept-store-backend.vercel.app
 Content-Type: application/json
 
 
 
 ### Register User
-POST https://dept-store-backend-idke.vercel.app/api/auth/register
+POST https://dept-store-backend.vercel.app/api/auth/register
 Content-Type: application/json
 Accept: application/json
 
@@ -18,7 +18,7 @@ Accept: application/json
 
 ### Login User
 
-POST https://dept-store-backend-idke.vercel.app/api/auth/login
+POST https://dept-store-backend.vercel.app/api/auth/login
 Content-Type: application/json
 Accept: application/json
 
@@ -29,14 +29,14 @@ Accept: application/json
 
 ### Token Authorization
 
-GET https://dept-store-backend-idke.vercel.app/api/auth/protected
+GET https://dept-store-backend.vercel.app/api/auth/protected
 Content-Type: application/json
 Accept: application/json
-Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGJjMmViZmU4N2QzZGJkMTEyYmIzYSIsImlhdCI6MTczNzU2OTk3N30.7bUFYzrPJEpk0CxHLV8EsF9lyeUw_t4nUv1n9XgUUjY
+Authorization: 1eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YTY0ZGQ2YzNlYWI1MWEzM2U5ZDU0YiIsImlhdCI6MTc0MTU3NjU0NSwiZXhwIjoxNzQxNTgwMTQ1fQ.SDMsDvnTq32FTDOraAOXGOnCnFCZohw4JrfYDs19ovY
 
 ### add products
 
-POST https://dept-store-backend-idke.vercel.app/addproduct
+POST https://dept-store-backend.vercel.app/addproduct
 Content-Type: application/json
 Accept: application/json
 
@@ -49,7 +49,7 @@ Accept: application/json
 }
 
 ### get all products
-GET https://dept-store-backend-idke.vercel.app/allproducts
+GET https://dept-store-backend.vercel.app/allproducts
 Content-Type: application/json
 Accept: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OGI4ZTlhMmIwYjE3N2E5YzllOTRlNSIsImlhdCI6MTczNzE5OTMzMSwiZXhwIjoxNzM3MjAyOTMxfQ.AXTvaNiAUfTi-x9fMAH8eq9EPWcAhsK0Zk6L9421Tz0
