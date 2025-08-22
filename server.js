@@ -326,8 +326,7 @@ app.post("/updatecart", auth, async (req, res) => {
 //Endpoint to Create Order 
 app.post("/create-order" , async (req, res) => {
   try {
-    // Get user info from JWT
-    const userId = req.user.id;
+   
    // Fetch email from database
     const userData = await user.findById(userId).select("email");
     if (!userData) return res.status(404).json({ message: "User not found" });
