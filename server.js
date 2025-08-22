@@ -324,7 +324,7 @@ app.post("/updatecart", auth, async (req, res) => {
 });
 
 //Endpoint to Create Order 
-app.post("/create-order", auth, async (req, res) => {
+app.post("/create-order" , async (req, res) => {
   try {
     // Get user info from JWT
     const userId = req.user.id;
