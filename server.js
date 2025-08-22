@@ -332,6 +332,8 @@ app.post("/create-order", auth, async (req, res) => {
     const userData = await user.findById(userId).select("email");
     if (!userData) return res.status(404).json({ message: "User not found" });
 
+    
+
     // Extract order info from request body
     const { address, phoneNumber, paymentMethod, paymentStatus, orderData, total,fullName } = req.body;
 
@@ -345,7 +347,7 @@ app.post("/create-order", auth, async (req, res) => {
       paymentMethod: paymentMethod,
       paymentStatus: paymentStatus,
       orderData: orderData,
-      totalPrice: total
+      total: total
     });
 
     await newOrder.save();
