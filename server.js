@@ -323,6 +323,44 @@ app.post("/updatecart", auth, async (req, res) => {
   }
 });
 
+//Endpoint to Create Order 
+app.post("/create-order", auth, async (req, res) => {
+  try {
+    // Get user info from JWT
+    const userId = req.user.id;
+   // Fetch email from database
+    const userData = await user.findById(userId).select("email");
+    if (!userData) return res.status(404).json({ message: "User not found" });
+
+    // Extract order info from request body
+    const { address, phoneNumber, paymentMethod, paymentStatus, orderData, total,fullName } = req.body;
+
+    // Create new order
+    const newOrder = new Order({
+      userId: userId,
+      fullName: fullName,
+      email: userData.email,
+      address: address,
+      phoneNumber: phoneNumber,
+      paymentMethod: paymentMethod,
+      paymentStatus: paymentStatus,
+      orderData: orderData,
+      totalPrice: total
+    });
+
+    await newOrder.save();
+
+    res.status(201).json({ message: "Order created successfully", order: newOrder });
+  } catch (error) {
+    console.error("Error creating order:", error);
+    res.status(500).json({ message: "Server error while creating order" });
+  }
+});
+
+
+
+
+
 // Protected Route Example
 app.get("/api/auth/protected", auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
