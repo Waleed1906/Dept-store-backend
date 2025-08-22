@@ -10,7 +10,8 @@ router.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
   try {
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: 'User already exists' });
+    if (userExists) return res.status(400).json({success:true, message: 'User already exists' });
+
 
     // Initialize cart with 300 items set to 0
     let cart = {};
@@ -33,7 +34,10 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user) return res.status(400).json({ success:false, message: 'Register First Kindly!' });
+    if (user) {
+      return res.json({ success:true, message: 'User Login successfully!' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
