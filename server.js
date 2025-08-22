@@ -21,7 +21,7 @@ app.use(cors());
 
 // Middleware setup
 app.use(express.json());
-app.use(bodyParser.json());
+
 
 // MongoDB connection
 mongoose
