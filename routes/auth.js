@@ -69,18 +69,12 @@ router.post('/payment', auth, async (req, res) => {
     const { fullName, address, phoneNumber, orderData, total } = req.body;
     const userId = req.user.id || req.user.userId;
 
-    // Validate user
     const user = await User.findById(userId).select('email');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Validate required fields
-    if (!fullName || !address || !phoneNumber || !orderData || !total) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
-    }
-
-    // Save pending order in DB
+    // Save pending order
     const newOrder = new Order({
       userId,
       fullName,
@@ -94,59 +88,20 @@ router.post('/payment', auth, async (req, res) => {
     });
     await newOrder.save();
 
-    // 2Checkout credentials
+    // 🔑 2Checkout Hosted Checkout credentials
     const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
-    const secretKey = process.env.TWOCHECKOUT_SECRET_KEY;
-    const date = new Date().toISOString();
-    const merchantOrderId = `ORD-${Date.now()}`;
+    const buyLinkSecret = process.env.TWOCHECKOUT_BUY_LINK_SECRET_WORD;
 
-    // Prepare data for 2Checkout API
-    const signaturePayload = {
-      merchant: merchantCode,
-      'order-ext-ref': merchantOrderId,
-      currency: 'PKR',
-      'customer-ext-ref': user._id.toString(),
-      fullName,
-      address,
-      email: user.email,
-      phoneNumber,
-      total,
-      orderData: orderData.map((item) => ({
-        code: item.productId,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        type: 'PRODUCT',
-      })),
-      paymentMethod: { type: 'CARD' },
-    };
+    // 🔐 Build signature (MD5: merchant + secret + total + currency)
+    const stringToHash = `${merchantCode}${buyLinkSecret}${total.toFixed(2)}USD`;
+    const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
 
-    // ✅ Correct authentication hash
-    const stringToHash = merchantCode + date.length + date;
-    const hash = crypto
-      .createHmac('sha256', secretKey)
-      .update(stringToHash)
-      .digest('hex');
+    // ✅ Build hosted checkout URL
+    const checkoutUrl = `https://secure.2checkout.com/checkout/buy?merchant=${merchantCode}&currency=USD&amount=${total.toFixed(
+      2
+    )}&signature=${signature}&return-url=https://ecom-frontend-navy.vercel.app/payment-success&order-ext-ref=${newOrder._id}`;
 
-    // Call 2Checkout Orders API
-    const response = await axios.post(
-      'https://api.2checkout.com/rest/6.0/orders/',
-      signaturePayload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Avangate-Authentication': `code="${merchantCode}" date="${date}" hash="${hash}"`,
-        },
-      }
-    );
-
-    res.json({
-      success: true,
-      message: 'Payment initiated successfully',
-      orderId: newOrder._id,
-      tcoOrder: response.data, // raw response from 2Checkout
-    });
+    return res.json({ success: true, checkoutUrl });
   } catch (error) {
     console.error('2Checkout Payment error:', error.response?.data || error.message);
     res.status(500).json({
