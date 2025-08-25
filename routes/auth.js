@@ -83,7 +83,7 @@ router.post('/payment', auth, async (req, res) => {
     // Build 2Checkout payment URL
     const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
     const secretWord = process.env.TWOCHECKOUT_SECRET_WORD; // Instant Notification Service secret
-    const returnUrl = 'https://ecom-frontend-navy.vercel.app/payment-success';
+    const returnUrl = 'https://ecom-frontend-navy.vercel.app/';
 
     const params = {
       sid: merchantCode,
