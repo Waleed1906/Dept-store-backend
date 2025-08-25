@@ -93,7 +93,7 @@ router.post('/payment', auth, async (req, res) => {
     const tco = new TwoCheckout({
       sellerId: process.env.TWOCHECKOUT_MERCHANT_CODE,
       privateKey: process.env.TWOCHECKOUT_PRIVATE_KEY,
-      sandbox: true, // false for production
+      sandbox: false, // false for production
     });
 
     // Prepare line items
@@ -107,7 +107,7 @@ router.post('/payment', auth, async (req, res) => {
 
     // Create hosted checkout session
     const sessionParams = {
-      currency: 'USD',
+      currency: 'PKR',
       external_reference: String(newOrder._id),
       billing_details: {
         name: fullName,
@@ -118,7 +118,7 @@ router.post('/payment', auth, async (req, res) => {
         },
       },
       line_items: lineItems,
-      return_url: 'https://ecom-frontend-navy.vercel.app/payment-success',
+      return_url: 'https://ecom-frontend-navy.vercel.app/cart',
     };
 
     const session = await tco.hostedCheckout.create(sessionParams);
