@@ -93,7 +93,7 @@ router.post('/payment', auth, async (req, res) => {
     const tco = new TwoCheckout({
       sellerId: process.env.TWOCHECKOUT_MERCHANT_CODE,
       privateKey: process.env.TWOCHECKOUT_PRIVATE_KEY,
-      sandbox: false, // false for production
+      sandbox: true, // false for production
     });
 
     // Prepare line items
