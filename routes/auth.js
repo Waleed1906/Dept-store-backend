@@ -6,8 +6,7 @@ const axios = require('axios');
 const router = express.Router();
 const auth = require('../middlewares/auth');
 const Order = require('../models/order');
-const crypto = require('crypto');
-const TwoCheckout = require('2checkout-node');
+
 // ============================
 // Register a new user
 // ============================
@@ -49,21 +48,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.json({ success: true, message: 'User Login successfully!', token, user });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
-
-
-//Payment Gateway
 
 router.post('/payment', auth, async (req, res) => {
   try {
@@ -89,43 +80,35 @@ router.post('/payment', auth, async (req, res) => {
     });
     await newOrder.save();
 
-    // Initialize 2Checkout API
-    const tco = new TwoCheckout({
-      sellerId: process.env.TWOCHECKOUT_MERCHANT_CODE,
-      privateKey: process.env.TWOCHECKOUT_PRIVATE_KEY,
-      sandbox: true, // false for production
-    });
+    // Build 2Checkout payment URL
+    const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
+    const secretWord = process.env.TWOCHECKOUT_SECRET_WORD; // Instant Notification Service secret
+    const returnUrl = 'https://ecom-frontend-navy.vercel.app/payment-success';
 
-    // Prepare line items
-    const lineItems = orderData.map((item) => ({
-      name: item.name,
-      price: item.price.toFixed(2),
-      quantity: item.quantity,
-      type: 'product',
-      product_id: item.productId || item.code || undefined,
-    }));
-
-    // Create hosted checkout session
-    const sessionParams = {
-      currency: 'PKR',
-      external_reference: String(newOrder._id),
-      billing_details: {
-        name: fullName,
-        email: user.email,
-        phone: phoneNumber,
-        address: {
-          line1: address,
-        },
-      },
-      line_items: lineItems,
-      return_url: 'https://ecom-frontend-navy.vercel.app/cart',
+    const params = {
+      sid: merchantCode,
+      mode: '2CO',
+      li_0_name: 'Order ' + newOrder._id,
+      li_0_price: total.toFixed(2),
+      currency_code: 'PKR',
+      x_receipt_link_url: returnUrl,
+      card_holder_name: fullName,
+      street_address: address,
+      email: user.email,
+      phone: phoneNumber,
+      merchant_order_id: newOrder._id.toString(),
     };
 
-    const session = await tco.hostedCheckout.create(sessionParams);
+    // Optional: sign the URL if required by 2Checkout
+    // const signature = crypto.createHash('md5').update(secretWord + merchantCode + newOrder._id + total.toFixed(2)).digest('hex');
 
-    res.json({ success: true, checkoutUrl: session.url });
+    const queryString = new URLSearchParams(params).toString();
+    const checkoutUrl = `https://www.2checkout.com/checkout/purchase?${queryString}`;
+
+    res.json({ success: true, checkoutUrl });
+
   } catch (err) {
-    console.error('2Checkout Payment error:', err);
+    console.error('2Checkout Payment error:', err.message);
     res.status(500).json({
       success: false,
       message: 'Server error during payment',
@@ -134,6 +117,7 @@ router.post('/payment', auth, async (req, res) => {
   }
 });
 
+    
 
 
 // ============================
