@@ -1,148 +1,373 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const User = require('../models/user');
-const axios = require('axios');
-const router = express.Router();
-const auth = require('../middlewares/auth');
-const Order = require('../models/order');
-const crypto = require('crypto');
+const express = require("express");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
+const authRoutes = require("./routes/auth");
+const jwt = require("jsonwebtoken");
+const multer = require("multer");
+const path = require("path");
+const auth = require("./middlewares/auth");
+const cors = require('cors');
+const fs = require("fs");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("cloudinary").v2; // Import Cloudinary
+const user = require("./models/user")
+const Order = require("./models/order")
+// Initialize Express app
+const app = express();
+dotenv.config();
+app.use(cors());
 
-// ============================
-// Register a new user
-// ============================
-router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  try {
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
-    }
+// Middleware setup
 
-    let cart = {};
-    for (let i = 1; i <= 300; i++) {
-      cart[i] = 0;
-    }
+app.use('/api/auth/payment', bodyParser.raw({ type: 'application/json' }));
+app.use(express.json());
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+  });
 
-    const newUser = new User({ name, email, password, cartData: cart });
-    await newUser.save();
+// Use Routes
+app.use("/api/auth", authRoutes);
 
-    res.status(201).json({ success: true, message: 'User registered successfully' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+// Root route
+app.get("/", (req, res) => {
+  res.send(
+    "Ahmad Yaseen-BSCS-F20-378,Muhammad Ahmad-BSCS-F20-283"
+  );
 });
 
-// ============================
-// Login user
-// ============================
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Register First Kindly!' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    res.json({ success: true, message: 'User Login successfully!', token, user });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+// Cloudinary configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, // Your Cloudinary cloud name
+  api_key: process.env.CLOUDINARY_API_KEY, // Your Cloudinary API key
+  api_secret: process.env.CLOUDINARY_API_SECRET, // Your Cloudinary API secret
 });
 
-// ============================
-// Payment route (Card Checkout)
-// ============================
-router.post('/payment', auth, async (req, res) => {
+// Set up Cloudinary storage engine
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "product_images", // Cloudinary folder where images will be saved
+    format: async (req, file) => path.extname(file.originalname).substring(1), // Automatically determine the file format
+    public_id: (req, file) => `${file.fieldname}_${Date.now()}`, // Set file name
+  },
+});
+
+const upload = multer({ storage: storage });
+
+// Upload endpoint for images
+app.post("/upload", upload.single("product"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "Image upload failed" });
+  }
+
+  // Cloudinary URL is automatically provided by req.file.path
+  res.json({
+    success: 1,
+    image_url: req.file.path, // Cloudinary URL for the uploaded image
+  });
+});
+
+// Product Schema
+const Product = mongoose.model("product", {
+  id: {
+    type: Number,
+    required: true,
+  },
+  name: {
+    type: String,
+    required: true,
+  },
+  image: {
+    type: String,
+    required: true,
+  },
+  category: {
+    type: String,
+    required: true,
+  },
+  new_price: {
+    type: Number,
+    required: true,
+  },
+  old_price: {
+    type: Number,
+    required: true,
+  },
+  date: {
+    type: Date,
+    default: Date.now,
+  },
+  available: {
+    type: Boolean,
+    default: true,
+  },
+});
+
+// Add Product Endpoint
+app.post("/addproduct", async (req, res) => {
   try {
-    const { fullName, address, phoneNumber, orderData, total } = req.body;
-    const userId = req.user.id || req.user.userId;
+    let last_product = await Product.findOne().sort({ id: -1 });
+    let id = last_product ? last_product.id + 1 : 1;
 
-    const user = await User.findById(userId).select('email');
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    if (!Array.isArray(orderData) || orderData.length === 0) {
-      return res.status(400).json({ success: false, message: 'No items in order' });
-    }
-
-    // Save pending order
-    const newOrder = new Order({
-      userId,
-      fullName,
-      email: user.email,
-      address,
-      phoneNumber,
-      paymentMethod: 'Card',
-      paymentStatus: 'Pending',
-      orderData,
-      total,
-    });
-    await newOrder.save();
-
-    // Recalculate total on server for safety
-    const computedTotal = orderData.reduce((sum, it) => sum + Number(it.price) * Number(it.quantity), 0);
-
-    // 🔑 2Checkout Hosted Checkout credentials
-    const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
-    const buyLinkSecret = process.env.TWOCHECKOUT_BUY_LINK_SECRET_WORD;
-    const currency = 'USD'; // change if you actually charge in a different currency
-
-    // 🔐 Signature (dynamic pricing)
-    const stringToHash = `${buyLinkSecret}${merchantCode}${computedTotal.toFixed(2)}${currency}`;
-    const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
-
-    // 🧾 Build Hosted Checkout URL with line items
-    const params = new URLSearchParams();
-    params.set('merchant', merchantCode);
-    params.set('currency', currency);
-
-    // Add each cart item: li_0_name, li_0_price, li_0_quantity, li_0_type, li_0_product_id
-    orderData.forEach((item, idx) => {
-      params.set(`li_${idx}_type`, 'product');
-      params.set(`li_${idx}_name`, String(item.name));
-      params.set(`li_${idx}_price`, Number(item.price).toFixed(2));
-      params.set(`li_${idx}_quantity`, String(item.quantity));
-      params.set(`li_${idx}_product_id`, String(item.productId || item.code || idx + 1));
+    const product = new Product({
+      id: id,
+      name: req.body.name,
+      image: req.body.image,
+      category: req.body.category,
+      new_price: req.body.new_price,
+      old_price: req.body.old_price,
     });
 
-    // Required when using dynamic pricing override
-    params.set('signature', signature);
+    const savedProduct = await product.save();
 
-    // Optional but useful
-    params.set('order-ext-ref', String(newOrder._id));
-    params.set('return-url', 'https://ecom-frontend-navy.vercel.app/payment-success');
-
-    const checkoutUrl = `https://secure.2checkout.com/checkout/buy?${params.toString()}`;
-
-    return res.json({ success: true, checkoutUrl });
+    res.json({
+      success: true,
+      product: savedProduct,
+    });
   } catch (error) {
-    console.error('2Checkout Payment error:', error.response?.data || error.message);
+    console.error("Error saving product:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error during payment',
-      error: error.response?.data || error.message,
+      message: error.message,
+    });
+  }
+});
+// Delete Product Endpoint
+app.post("/removeproduct/:id", async (req, res) => {
+  try {
+    const productId = req.params.id;
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is missing",
+      });
+    }
+
+    // Find the product to get the image URL
+    const deletedProduct = await Product.findOneAndDelete({ id: productId });
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Extract the public ID from the Cloudinary image URL
+    const imageUrl = deletedProduct.image;
+    const publicId = imageUrl.split('/').pop().split('.')[0]; // Extract the public ID from the URL
+
+    // Delete the image from Cloudinary
+    await cloudinary.uploader.destroy(`product_images/${publicId}`, (error, result) => {
+      if (error) {
+        console.error("Cloudinary image deletion error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Error deleting image from Cloudinary",
+        });
+      }
+      console.log("Image deleted from Cloudinary:", result);
+    });
+
+    console.log("Product and image removed:", deletedProduct);
+    res.json({
+      success: true,
+      message: "Product removed successfully",
+      name: deletedProduct.name,
+    });
+  } catch (error) {
+    console.error("Error removing product:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error occurred while removing the product",
     });
   }
 });
 
-// ============================
-// Protected route
-// ============================
-router.get('/protected', auth, (req, res) => {
-  res.json({ success: true, message: 'Welcome to the protected route!', user: req.user });
+
+// Get all products
+app.get("/allproducts", async (req, res) => {
+  try {
+    let products = await Product.find({});
+    console.log("All Products Fetched");
+    res.json(products);
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching products",
+    });
+  }
 });
 
-module.exports = router;
+// Endpoint for Our Latest Items (one latest item per category)
+app.get("/LatestItems", async (req, res) => {
+  try {
+    let products = await Product.find({}).sort({ date: -1 });
+
+    let latestItemsByCategory = new Map();
+
+    products.forEach((product) => {
+      if (!latestItemsByCategory.has(product.category)) {
+        latestItemsByCategory.set(product.category, product);
+      }
+    });
+
+    let latestItems = Array.from(latestItemsByCategory.values());
+
+    console.log("Latest Items by Category Fetched");
+    res.json(latestItems);
+  } catch (error) {
+    console.error("Error fetching latest items:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching latest items",
+    });
+  }
+});
+
+// Endpoint for Popular in Fruits and Vegetables
+app.get("/popularinvegetables", async (req, res) => {
+  try {
+    let products = await Product.find({ category: "Fruits_Vegetables" });
+    let popularinvegetables = products.slice(0, 3);
+    console.log("Popular in Fruits and Vegetables Fetched");
+    res.json(popularinvegetables);
+  } catch (error) {
+    console.error("Error fetching popular vegetables:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching popular vegetables",
+    });
+  }
+});
+
+// Get new products
+app.get("/newproducts", async (req, res) => {
+  try {
+    let newproducts = await Product.find().sort({ date: -1 }).limit(8);
+    console.log("New Products Fetched");
+    res.json(newproducts);
+  } catch (error) {
+    console.error("Error fetching new products:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching new products",
+    });
+  }
+});
+// Endpoint for Add to Cart save data to MongoDB
+app.post("/addtocart", auth, async (req, res) => {
+  console.log("Added",req.body.itemId);
+  let userData = await user.findOne({_id:req.user.id});
+  userData.cartData[req.body.itemId] += 1;
+  await user.findOneAndUpdate({_id:req.user.id},{cartData:userData.cartData});
+  res.send("Added")
+
+})
+
+// Endpoint for Remove from Cart save data to MongoDB
+app.post("/removetocart", auth, async (req, res) => {
+  console.log("removed",req.body.itemId);
+  let userData = await user.findOne({_id:req.user.id});
+  if(userData.cartData[req.body.itemId]>0)
+  userData.cartData[req.body.itemId] = 0;
+  await user.findOneAndUpdate({_id:req.user.id},{cartData:userData.cartData});
+  res.send("Removed")
+
+})
+// Enpoint to get Cartdata
+
+app.post("/getcart", auth, async (req, res) => {
+  console.log("GetCart");
+  let userData = await user.findOne({_id:req.user.id});
+  res.json(userData.cartData);
+
+})
+// Endpoint for Add to Cart save data to MongoDB
+app.post("/updatecart", auth, async (req, res) => {
+  try {
+    const { itemId, quantity } = req.body;
+
+    // Find the user by their ID
+    let userData = await user.findOne({ _id: req.user.id });
+    
+    // Ensure cartData exists
+    if (!userData.cartData) {
+      return res.status(400).json({ message: "Cart data not found." });
+    }
+
+    // Check if the item exists in the cart
+    if (!(itemId in userData.cartData)) {
+      return res.status(404).json({ message: "Item not found in the cart." });
+    }
+
+    // Update the item's quantity in the cart
+    userData.cartData[itemId] = quantity;
+
+    // Save the updated cart data to the database
+    await user.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
+
+    res.json({ message: "Cart updated successfully." });
+  } catch (error) {
+    console.error("Error updating cart:", error);
+    res.status(500).json({ message: "Server error. Unable to update cart." });
+  }
+});
+
+//Endpoint to Create Order 
+app.post("/create-order", auth, async (req, res) => {
+  try {
+    // Get user info from JWT
+    const userId = req.user.id;
+   // Fetch email from database
+    const userData = await user.findById(userId).select("email");
+    if (!userData) return res.status(404).json({ message: "User not found" });
+
+    
+
+    // Extract order info from request body
+    const { address, phoneNumber, paymentMethod, paymentStatus, orderData, total,fullName } = req.body;
+
+    // Create new order
+    const newOrder = new Order({
+      userId: userId,
+      fullName: fullName,
+      email: userData.email,
+      address: address,
+      phoneNumber: phoneNumber,
+      paymentMethod: paymentMethod,
+      paymentStatus: paymentStatus,
+      orderData: orderData,
+      total: total
+    });
+
+    await newOrder.save();
+
+    res.status(201).json({ message: "Order created successfully", order: newOrder });
+  } catch (error) {
+    console.error("Error creating order:", error);
+    res.status(500).json({ message: "Server error while creating order" });
+  }
+});
+
+
+
+
+
+// Protected Route Example
+app.get("/api/auth/protected", auth, (req, res) => {
+  res.status(200).json({ message: "Token is valid", user: req.user });
+});
+
+// Server setup
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
