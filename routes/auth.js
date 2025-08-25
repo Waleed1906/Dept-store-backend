@@ -2,62 +2,167 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/user');
+const axios = require('axios');
 const router = express.Router();
 const auth = require('../middlewares/auth');
+const Order = require('../models/order');
+const crypto = require('crypto');
 
+// ============================
 // Register a new user
+// ============================
 router.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
   try {
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({success:true, message: 'User already exists' });
+    if (userExists) {
+      return res.status(400).json({ success: false, message: 'User already exists' });
+    }
 
-
-    // Initialize cart with 300 items set to 0
     let cart = {};
     for (let i = 1; i <= 300; i++) {
       cart[i] = 0;
     }
 
-    // Create new user with cart data
     const newUser = new User({ name, email, password, cartData: cart });
     await newUser.save();
 
-    res.status(201).json({ message: 'User registered successfully' });
+    res.status(201).json({ success: true, message: 'User registered successfully' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// ============================
 // Login user
+// ============================
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ success:false, message: 'Register First Kindly!' });
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Register First Kindly!' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ success:false, message: 'Invalid credentials' });
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
+    }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
-    // Send token and user info
     res.json({ success: true, message: 'User Login successfully!', token, user });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// for user payment 
-router.post('/payment', async (req, res) => {
+// ============================
+// Payment route (Card Checkout)
+// ============================
+router.post('/payment', auth, async (req, res) => {
+  try {
+    const { fullName, address, phoneNumber, orderData, total } = req.body;
+    const userId = req.user.id || req.user.userId;
+
+    // Validate user
+    const user = await User.findById(userId).select('email');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Validate required fields
+    if (!fullName || !address || !phoneNumber || !orderData || !total) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    // Save pending order in DB
+    const newOrder = new Order({
+      userId,
+      fullName,
+      email: user.email,
+      address,
+      phoneNumber,
+      paymentMethod: 'Card',
+      paymentStatus: 'Pending',
+      orderData,
+      total,
+    });
+    await newOrder.save();
+
+    // 2Checkout credentials
+    const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
+    const secretKey = process.env.TWOCHECKOUT_SECRET_KEY;
+    const date = new Date().toISOString();
+    const merchantOrderId = `ORD-${Date.now()}`;
+
+    // Prepare data for 2Checkout API
+    const signaturePayload = {
+      merchant: merchantCode,
+      'order-ext-ref': merchantOrderId,
+      currency: 'PKR',
+      'customer-ext-ref': user._id.toString(),
+      fullName,
+      address,
+      email: user.email,
+      phoneNumber,
+      total,
+      orderData: orderData.map((item) => ({
+        code: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        type: 'PRODUCT',
+      })),
+      paymentMethod: { type: 'CARD' },
+    };
+
+    // ✅ Correct authentication hash
+    const stringToHash = merchantCode + date.length + date;
+    const hash = crypto
+      .createHmac('sha256', secretKey)
+      .update(stringToHash)
+      .digest('hex');
+
+    // Call 2Checkout Orders API
+    const response = await axios.post(
+      'https://api.2checkout.com/rest/6.0/orders/',
+      signaturePayload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Avangate-Authentication': `code="${merchantCode}" date="${date}" hash="${hash}"`,
+        },
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Payment initiated successfully',
+      orderId: newOrder._id,
+      tcoOrder: response.data, // raw response from 2Checkout
+    });
+  } catch (error) {
+    console.error('2Checkout Payment error:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during payment',
+      error: error.response?.data || error.message,
+    });
+  }
+});
 
 
-
-})
-
-// Protected JWT route
-router.get("/protected", auth, (req, res) => {
-  res.json({ message: "Welcome to the protected route!", user: req.user });
+// ============================
+// Protected route
+// ============================
+router.get('/protected', auth, (req, res) => {
+  res.json({ success: true, message: 'Welcome to the protected route!', user: req.user });
 });
 
 module.exports = router;
