@@ -22,7 +22,7 @@ app.use(cors());
 // Middleware setup
 app.use(express.json());
 
-
+app.use('/api/auth/payment', bodyParser.raw({ type: 'application/json' }));
 // MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
