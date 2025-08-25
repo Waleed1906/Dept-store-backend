@@ -21,7 +21,7 @@ app.use(cors());
 
 // Middleware setup
 
-app.use('/api/auth/payment', bodyParser.raw({ type: 'application/json' }));
+
 app.use(express.json());
 // MongoDB connection
 mongoose
