@@ -92,7 +92,7 @@ router.post('/payment', auth, async (req, res) => {
     // Initialize 2Checkout API
     const tco = new TwoCheckout({
       sellerId: process.env.TWOCHECKOUT_MERCHANT_CODE,
-      privateKey: process.env.TWOCHECKOUT_PRIVATE_KEY,
+      privateKey: process.env.TWOCHECKOUT_SECRET_KEY,
       sandbox: false, // false for production
     });
 
