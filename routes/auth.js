@@ -80,31 +80,27 @@ router.post('/payment', auth, async (req, res) => {
     });
     await newOrder.save();
 
-    // Build 2Checkout payment URL
+    // 2Checkout Hosted Checkout URL (simple redirect approach)
     const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
-    const secretWord = process.env.TWOCHECKOUT_SECRET_WORD; // Instant Notification Service secret
-    const returnUrl = 'https://ecom-frontend-navy.vercel.app/';
+    const secretWord = process.env.TWOCHECKOUT_SECRET_WORD; // Optional for signing
 
-    const params = {
+    const params = new URLSearchParams({
       sid: merchantCode,
       mode: '2CO',
       li_0_name: 'Order ' + newOrder._id,
       li_0_price: total.toFixed(2),
-      currency_code: 'USD',
-      x_receipt_link_url: returnUrl,
+      currency_code: 'USD', // Sandbox only supports USD, EUR, GBP
+      x_receipt_link_url: 'https://ecom-frontend-navy.vercel.app/', 
       card_holder_name: fullName,
       street_address: address,
       email: user.email,
       phone: phoneNumber,
       merchant_order_id: newOrder._id.toString(),
-    };
+    });
 
-    // Optional: sign the URL if required by 2Checkout
-    // const signature = crypto.createHash('md5').update(secretWord + merchantCode + newOrder._id + total.toFixed(2)).digest('hex');
+    const checkoutUrl = `https://sandbox.2checkout.com/checkout/purchase?${params.toString()}`;
 
-    const queryString = new URLSearchParams(params).toString();
-    const checkoutUrl = `https://www.2checkout.com/checkout/purchase?${queryString}`;
-
+    // Send URL to frontend for redirect
     res.json({ success: true, checkoutUrl });
 
   } catch (err) {
@@ -116,6 +112,9 @@ router.post('/payment', auth, async (req, res) => {
     });
   }
 });
+
+   
+
 
     
 
