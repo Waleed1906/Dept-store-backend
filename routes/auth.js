@@ -90,7 +90,7 @@ router.post('/payment', auth, async (req, res) => {
       mode: '2CO',
       li_0_name: 'Order ' + newOrder._id,
       li_0_price: total.toFixed(2),
-      currency_code: 'PKR',
+      currency_code: 'USD',
       x_receipt_link_url: returnUrl,
       card_holder_name: fullName,
       street_address: address,
