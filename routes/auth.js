@@ -92,14 +92,15 @@ router.post('/payment', auth, async (req, res) => {
     const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
     const buyLinkSecret = process.env.TWOCHECKOUT_BUY_LINK_SECRET_WORD;
 
-    // 🔐 Build signature (MD5: merchant + secret + total + currency)
-    const stringToHash = `${merchantCode}${buyLinkSecret}${total.toFixed(2)}USD`;
-    const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
+    // 🔐 Build signature correctly
+const stringToHash = `${buyLinkSecret}${merchantCode}${total.toFixed(2)}USD`;
+const signature = crypto.createHash('md5').update(stringToHash).digest('hex');
 
-    // ✅ Build hosted checkout URL
-    const checkoutUrl = `https://secure.2checkout.com/checkout/buy?merchant=${merchantCode}&currency=USD&amount=${total.toFixed(
-      2
-    )}&signature=${signature}&return-url=https://ecom-frontend-navy.vercel.app/payment-success&order-ext-ref=${newOrder._id}`;
+// ✅ Build hosted checkout URL
+const checkoutUrl = `https://secure.2checkout.com/checkout/buy?merchant=${merchantCode}&currency=USD&amount=${total.toFixed(
+  2
+)}&signature=${signature}&return-url=https://ecom-frontend-navy.vercel.app/payment-success&order-ext-ref=${newOrder._id}`;
+
 
     return res.json({ success: true, checkoutUrl });
   } catch (error) {
