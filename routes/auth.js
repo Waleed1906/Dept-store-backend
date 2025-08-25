@@ -48,6 +48,12 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// for user payment 
+router.post('/payment', async (req, res) => {
+
+res.json({ message: "Hi" });
+
+})
 
 // Protected JWT route
 router.get("/protected", auth, (req, res) => {
