@@ -6,6 +6,7 @@ const axios = require('axios');
 const router = express.Router();
 const auth = require('../middlewares/auth');
 const Order = require('../models/order');
+const dotenv = require("dotenv");
 
 // ============================
 // Register a new user
@@ -59,12 +60,12 @@ router.post('/login', async (req, res) => {
 // ============================
 // Payment Method (Safepay)
 // ============================
-const SAFEPAY_SECRET_KEY = process.env.SAFEPAY_SECRET_KEY;
-const SAFEPAY_PUBLIC_KEY = process.env.SAFEPAY_PUBLIC_KEY;
-const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/";
-
 router.post('/payment', auth, async (req, res) => {
   try {
+    const SAFEPAY_SECRET_KEY = process.env.SAFE_PAY_SECRET_KEY; // sk_...
+    const SAFEPAY_PUBLIC_KEY = process.env.SAFE_PAY_PUBLIC_KEY; // pk_...
+
+    const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/";
     const { fullName, address, phoneNumber, orderData, total } = req.body;
     const userId = req.user.id || req.user.userId;
 
@@ -91,41 +92,54 @@ router.post('/payment', auth, async (req, res) => {
     const safepayPayload = {
       amount: total,
       currency: "PKR",
-      order_id: newOrder._id.toString(),
+      orderId: newOrder._id.toString(),
       customer: {
         name: fullName,
         phone: phoneNumber,
         email: user.email,
         address,
       },
-      payment_method: "Card",
-      callback_url: CALLBACK_URL,
-      client: SAFEPAY_PUBLIC_KEY,   // public key
-      environment: "sandbox",       // sandbox environment
+      paymentMethod: "Card",
+      callbackUrl: CALLBACK_URL,
+      client: SAFEPAY_PUBLIC_KEY,
+      environment: "sandbox"
     };
 
     console.log("Safepay Payload:", safepayPayload);
 
-    const response = await axios.post(
-      "https://sandbox.api.getsafepay.com/api/payment/api/payment",
-      safepayPayload,
-      {
-        headers: {
-          Authorization: `Bearer ${SAFEPAY_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    let safepayResponse;
+    try {
+      safepayResponse = await axios.post(
+        "https://sandbox.api.getsafepay.com/order/v1/init",
+        safepayPayload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SAFEPAY_SECRET_KEY}`,
+          },
+        }
+      );
+    } catch (err) {
+      console.error("Safepay API Error:", err.response?.data || err.message);
+      return res.status(500).json({ success: false, message: "Failed to create Safepay session" });
+    }
 
-    console.log("Safepay Response:", response.data);
+    console.log("Safepay Response:", safepayResponse.data);
 
-    res.json({ checkoutUrl: response.data.payment_url, sessionToken: response.data.session_token });
+    // ✅ Return sessionToken (for Safepay.checkout in frontend)
+    if (safepayResponse?.data?.data?.token) {
+      const token = safepayResponse.data.data.token;
+      res.json({ success: true, sessionToken: token });
+    } else {
+      res.status(500).json({ success: false, message: "No payment token returned by Safepay" });
+    }
 
   } catch (error) {
     console.error("Error creating Safepay payment:", error.response?.data || error.message);
     res.status(500).json({ success: false, message: "Failed to initiate payment" });
   }
 });
+
 
 // ============================
 // Protected route
