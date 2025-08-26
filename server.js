@@ -355,7 +355,7 @@ app.post("/create-order", auth, async (req, res) => {
     res.status(201).json({ message: "Order created successfully", order: newOrder });
   } catch (error) {
     console.error("Error creating order:", error);
-    res.status(500).json({ message: "Server error while creating order" });
+    res.status(500).json({ message: "Dear Customer You already placed ordered with Same Payment Method" });
   }
 });
 
