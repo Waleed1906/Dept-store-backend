@@ -63,9 +63,8 @@ router.post('/login', async (req, res) => {
 router.post('/payment', auth, async (req, res) => {
   try {
     const SAFEPAY_SECRET_KEY = process.env.SAFE_PAY_SECRET_KEY; // sk_...
-    const SAFEPAY_PUBLIC_KEY = process.env.SAFE_PAY_PUBLIC_KEY; // pk_...
-
     const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/"; // must be https & valid
+
     const { fullName, address, phoneNumber, orderData, total } = req.body;
     const userId = req.user.id || req.user.userId;
 
@@ -93,9 +92,7 @@ router.post('/payment', auth, async (req, res) => {
       amount: total * 100, // Safepay requires paisa
       currency: "PKR",
       order_id: newOrder._id.toString(),
-      source: {
-        callback_url: CALLBACK_URL,
-      },
+      redirect_url: CALLBACK_URL, // correct key
     };
 
     console.log("Safepay Payload:", safepayPayload);
@@ -103,7 +100,7 @@ router.post('/payment', auth, async (req, res) => {
     let safepayResponse;
     try {
       safepayResponse = await axios.post(
-        "https://sandbox.api.getsafepay.com/v1/session", // ✅ Correct endpoint
+        "https://sandbox.api.getsafepay.com/order/v1/init", // ✅ Correct endpoint for JSON token
         safepayPayload,
         {
           headers: {
@@ -131,7 +128,6 @@ router.post('/payment', auth, async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to initiate payment" });
   }
 });
-
 
 // ============================
 // Protected route
