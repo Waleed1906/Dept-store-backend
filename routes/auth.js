@@ -56,62 +56,64 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/payment', auth, async (req, res) => {
+// ------------------- Create Stripe PaymentIntent -------------------
+const createPaymentIntent = async (req, res) => {
   try {
-    const { fullName, address, phoneNumber, orderData, total } = req.body;
-    const userId = req.user.id || req.user.userId;
+    const { planId } = req.body;
+    const userId = req.userId;
 
-    const user = await User.findById(userId).select('email');
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+    const user = await user.findById(userId);
+    if (!user) return res.json({ success: false, message: 'User not found' });
+    if (!planId) return res.json({ success: false, message: 'Missing Plan Id' });
+
+  
+
+    // Check for existing pending transaction
+    const existingTxn = await transactionModel.findOne({ userId, plan, status: 'pending' });
+    if (existingTxn) {
+      const pi = await stripe.paymentIntents.retrieve(existingTxn.paymentIntentId);
+      return res.json({
+        success: true,
+        clientSecret: pi.client_secret,
+        message: 'Existing pending PaymentIntent reused',
+      });
     }
 
-    // Save pending order
-    const newOrder = new Order({
-      userId,
-      fullName,
-      email: user.email,
-      address,
-      phoneNumber,
-      paymentMethod: 'Card',
-      paymentStatus: 'Pending',
-      orderData,
-      total,
-    });
-    await newOrder.save();
-
-    // 2Checkout Hosted Checkout URL (simple redirect approach)
-    const merchantCode = process.env.TWOCHECKOUT_MERCHANT_CODE;
-    const secretWord = process.env.TWOCHECKOUT_SECRET_WORD; // Optional for signing
-
-    const params = new URLSearchParams({
-      sid: merchantCode,
-      mode: '2CO',
-      li_0_name: 'Order ' + newOrder._id,
-      li_0_price: total.toFixed(2),
-      currency_code: 'USD', // Sandbox only supports USD, EUR, GBP
-      x_receipt_link_url: 'https://ecom-frontend-navy.vercel.app/', 
-      card_holder_name: fullName,
-      street_address: address,
-      email: user.email,
-      phone: phoneNumber,
-      merchant_order_id: newOrder._id.toString(),
+    // Create new Stripe PaymentIntent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount * 100,
+      currency: 'usd',
+      metadata: { userId, plan },
+      automatic_payment_methods: { enabled: true },
     });
 
-    const checkoutUrl = `https://sandbox.2checkout.com/checkout/purchase?${params.toString()}`;
+    // Save transaction in DB
+    await transactionModel.findOneAndUpdate(
+      { paymentIntentId: paymentIntent.id },
+      {
+        $set: {
+          userId,
+          plan,
+          credits,
+          amount,
+          status: 'pending',
+          date: Date.now(),
+          paymentIntentId: paymentIntent.id,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-    // Send URL to frontend for redirect
-    res.json({ success: true, checkoutUrl });
-
-  } catch (err) {
-    console.error('2Checkout Payment error:', err.message);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during payment',
-      error: err.message,
+    res.json({
+      success: true,
+      clientSecret: paymentIntent.client_secret,
+      message: 'PaymentIntent created',
     });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
   }
-});
+};
 
    
 
