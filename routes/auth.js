@@ -102,7 +102,7 @@ router.post('/payment', auth, async (req, res) => {
     };
 
     const response = await axios.post(
-      "https://sandbox.getsafepay.pk/api/payment",
+      "https://sandbox.api.getsafepay.com/api/payment/api/payment",
       safepayPayload,
       {
         headers: {
