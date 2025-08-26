@@ -56,70 +56,70 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ------------------- Create Stripe PaymentIntent -------------------
-const createPaymentIntent = async (req, res) => {
+// ============================
+// Payment Method 
+// ============================
+const SAFEPAY_SECRET_KEY = process.env.SAFEPAY_SECRET_KEY; // store in .env for security
+const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/"; // update your callback
+
+router.post('/payment', auth, async (req, res) => {
   try {
-    const { planId } = req.body;
-    const userId = req.userId;
+    const { fullName, address, phoneNumber, orderData, total } = req.body;
+    const userId = req.user.id || req.user.userId;
 
-    const user = await user.findById(userId);
-    if (!user) return res.json({ success: false, message: 'User not found' });
-    if (!planId) return res.json({ success: false, message: 'Missing Plan Id' });
-
-  
-
-    // Check for existing pending transaction
-    const existingTxn = await transactionModel.findOne({ userId, plan, status: 'pending' });
-    if (existingTxn) {
-      const pi = await stripe.paymentIntents.retrieve(existingTxn.paymentIntentId);
-      return res.json({
-        success: true,
-        clientSecret: pi.client_secret,
-        message: 'Existing pending PaymentIntent reused',
-      });
+    const user = await User.findById(userId).select('email');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Create new Stripe PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100,
-      currency: 'usd',
-      metadata: { userId, plan },
-      automatic_payment_methods: { enabled: true },
+    // Save pending order
+    const newOrder = new Order({
+      userId,
+      fullName,
+      email: user.email,
+      address,
+      phoneNumber,
+      paymentMethod: 'Card',
+      paymentStatus: 'Pending',
+      orderData,
+      total,
     });
+    await newOrder.save();
 
-    // Save transaction in DB
-    await transactionModel.findOneAndUpdate(
-      { paymentIntentId: paymentIntent.id },
-      {
-        $set: {
-          userId,
-          plan,
-          credits,
-          amount,
-          status: 'pending',
-          date: Date.now(),
-          paymentIntentId: paymentIntent.id,
-        },
+    // Create Safepay payment order
+    const safepayPayload = {
+      amount: total,
+      currency: "PKR",
+      order_id: newOrder._id.toString(),
+      customer: {
+        name: fullName,
+        phone: phoneNumber,
+        email: user.email,
+        address,
       },
-      { upsert: true, new: true }
+      payment_method: "Card",
+      callback_url: CALLBACK_URL,
+    };
+
+    const response = await axios.post(
+      "https://sandbox.getsafepay.pk/api/payment",
+      safepayPayload,
+      {
+        headers: {
+          Authorization: `Bearer ${SAFEPAY_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
     );
 
-    res.json({
-      success: true,
-      clientSecret: paymentIntent.client_secret,
-      message: 'PaymentIntent created',
-    });
+    // Return checkout URL to frontend
+    res.json({ checkoutUrl: response.data.payment_url });
+
   } catch (error) {
-    console.error(error);
-    res.json({ success: false, message: error.message });
+    console.error("Error creating Safepay payment:", error.response?.data || error.message);
+    res.status(500).json({ success: false, message: "Failed to initiate payment" });
   }
-};
-
-   
-
-
-    
-
+});
 
 // ============================
 // Protected route
