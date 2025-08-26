@@ -57,23 +57,20 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ============================
-// Payment Method (Safepay)
-// ============================
 router.post('/payment', auth, async (req, res) => {
   try {
-    const SAFEPAY_SECRET_KEY = process.env.SAFE_PAY_SECRET_KEY; // sk_...
-    const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/"; // must be https & valid
+    const SAFEPAY_SECRET_KEY = process.env.SAFE_PAY_SECRET_KEY;
+    const SAFEPAY_PUBLIC_KEY = process.env.SAFE_PAY_PUBLIC_KEY;
+    const CALLBACK_URL = process.env.CALLBACK_URL || "https://ecom-frontend-navy.vercel.app/";
 
     const { fullName, address, phoneNumber, orderData, total } = req.body;
     const userId = req.user.id || req.user.userId;
 
+    // Fetch user email
     const user = await User.findById(userId).select('email');
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Save pending order
+    // Save order with Pending status
     const newOrder = new Order({
       userId,
       fullName,
@@ -87,45 +84,65 @@ router.post('/payment', auth, async (req, res) => {
     });
     await newOrder.save();
 
-    // ✅ Safepay payload (correct format)
+    // Prepare SafePay payload
     const safepayPayload = {
-      amount: total * 100, // Safepay requires paisa
+      client: SAFEPAY_PUBLIC_KEY,           // Required field
+      amount: Math.round(total * 100),      // PKR minor units
       currency: "PKR",
       order_id: newOrder._id.toString(),
-      redirect_url: CALLBACK_URL, // correct key
+      customer: {
+        name: fullName,
+        phone: phoneNumber,
+        email: user.email,
+        address
+      },
+      payment_method: "Card",
+      cancel_url: CALLBACK_URL,
+      success_url: CALLBACK_URL,
+      environment: "sandbox"
     };
 
-    console.log("Safepay Payload:", safepayPayload);
-
-    let safepayResponse;
-    try {
-      safepayResponse = await axios.post(
-        "https://sandbox.api.getsafepay.com/order/v1/init", // ✅ Correct endpoint for JSON token
-        safepayPayload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${SAFEPAY_SECRET_KEY}`,
-          },
+    // Send request to SafePay
+    const safepayResponse = await axios.post(
+      "https://sandbox.api.getsafepay.com/order/v1/init",
+      safepayPayload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SAFEPAY_SECRET_KEY}`
         }
-      );
-    } catch (err) {
-      console.error("Safepay API Error:", err.response?.data || err.message);
-      return res.status(500).json({ success: false, message: "Failed to create Safepay session" });
+      }
+    );
+
+    const token = safepayResponse.data?.data?.token;
+
+    if (!token) {
+      return res.status(500).json({
+        success: false,
+        message: "Payment token was not returned by SafePay",
+        debug: safepayResponse.data
+      });
     }
 
-    console.log("Safepay Response:", safepayResponse.data);
+    // Construct checkout URL
+    const checkoutUrl = `https://sandbox.getsafepay.com/checkout/pay?token=${token}`;
 
-    // ✅ Return sessionToken for frontend Safepay.checkout
-    if (safepayResponse?.data?.data?.token) {
-      res.json({ success: true, sessionToken: safepayResponse.data.data.token });
-    } else {
-      res.status(500).json({ success: false, message: "No payment token returned by Safepay" });
-    }
+    // Return token + URL for frontend
+    res.json({
+      success: true,
+      message: "SafePay token generated successfully",
+      token,
+      url: checkoutUrl
+    });
 
   } catch (error) {
-    console.error("Error creating Safepay payment:", error.response?.data || error.message);
-    res.status(500).json({ success: false, message: "Failed to initiate payment" });
+    console.error("Error creating SafePay payment:", error.response?.data || error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to initiate payment",
+      error: error.response?.data || error.message
+    });
   }
 });
 
