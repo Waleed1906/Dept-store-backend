@@ -60,7 +60,8 @@ router.post('/login', async (req, res) => {
 // Payment Method (Safepay)
 // ============================
 const SAFEPAY_SECRET_KEY = process.env.SAFEPAY_SECRET_KEY;
-const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/"; // your frontend callback/redirect
+const SAFEPAY_PUBLIC_KEY = process.env.SAFEPAY_PUBLIC_KEY;
+const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/";
 
 router.post('/payment', auth, async (req, res) => {
   try {
@@ -86,18 +87,28 @@ router.post('/payment', auth, async (req, res) => {
     });
     await newOrder.save();
 
-    // Create Safepay session
-    const safepayResponse = await axios.post(
-      "https://sandbox.api.getsafepay.com/order/v1/init",
-      {
-        amount: total,
-        currency: "PKR",
-        orderId: newOrder._id.toString(),
-        source: {
-          checkout: "true",
-          callback_url: CALLBACK_URL, // where user is redirected after payment
-        }
+    // Create Safepay payment session
+    const safepayPayload = {
+      amount: total,
+      currency: "PKR",
+      order_id: newOrder._id.toString(),
+      customer: {
+        name: fullName,
+        phone: phoneNumber,
+        email: user.email,
+        address,
       },
+      payment_method: "Card",
+      callback_url: CALLBACK_URL,
+      client: SAFEPAY_PUBLIC_KEY,   // public key
+      environment: "sandbox",       // sandbox environment
+    };
+
+    console.log("Safepay Payload:", safepayPayload);
+
+    const response = await axios.post(
+      "https://sandbox.api.getsafepay.com/api/payment/api/payment",
+      safepayPayload,
       {
         headers: {
           Authorization: `Bearer ${SAFEPAY_SECRET_KEY}`,
@@ -106,8 +117,9 @@ router.post('/payment', auth, async (req, res) => {
       }
     );
 
-    // Return Safepay session token to frontend
-    res.json({ sessionToken: safepayResponse.data.data.token });
+    console.log("Safepay Response:", response.data);
+
+    res.json({ checkoutUrl: response.data.payment_url, sessionToken: response.data.session_token });
 
   } catch (error) {
     console.error("Error creating Safepay payment:", error.response?.data || error.message);
