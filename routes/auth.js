@@ -65,7 +65,7 @@ router.post('/payment', auth, async (req, res) => {
     const SAFEPAY_SECRET_KEY = process.env.SAFE_PAY_SECRET_KEY; // sk_...
     const SAFEPAY_PUBLIC_KEY = process.env.SAFE_PAY_PUBLIC_KEY; // pk_...
 
-    const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/";
+    const CALLBACK_URL = "https://ecom-frontend-navy.vercel.app/"; // must be https & valid
     const { fullName, address, phoneNumber, orderData, total } = req.body;
     const userId = req.user.id || req.user.userId;
 
@@ -88,21 +88,14 @@ router.post('/payment', auth, async (req, res) => {
     });
     await newOrder.save();
 
-    // Create Safepay payment session
+    // ✅ Safepay payload (correct format)
     const safepayPayload = {
-      amount: total,
+      amount: total * 100, // Safepay requires paisa
       currency: "PKR",
-      orderId: newOrder._id.toString(),
-      customer: {
-        name: fullName,
-        phone: phoneNumber,
-        email: user.email,
-        address,
+      order_id: newOrder._id.toString(),
+      source: {
+        callback_url: CALLBACK_URL,
       },
-      paymentMethod: "Card",
-      callbackUrl: CALLBACK_URL,
-      client: SAFEPAY_PUBLIC_KEY,
-      environment: "sandbox"
     };
 
     console.log("Safepay Payload:", safepayPayload);
@@ -110,7 +103,7 @@ router.post('/payment', auth, async (req, res) => {
     let safepayResponse;
     try {
       safepayResponse = await axios.post(
-        "https://sandbox.api.getsafepay.com/order/v1/init",
+        "https://sandbox.api.getsafepay.com/v1/session", // ✅ Correct endpoint
         safepayPayload,
         {
           headers: {
@@ -126,10 +119,9 @@ router.post('/payment', auth, async (req, res) => {
 
     console.log("Safepay Response:", safepayResponse.data);
 
-    // ✅ Return sessionToken (for Safepay.checkout in frontend)
+    // ✅ Return sessionToken for frontend Safepay.checkout
     if (safepayResponse?.data?.data?.token) {
-      const token = safepayResponse.data.data.token;
-      res.json({ success: true, sessionToken: token });
+      res.json({ success: true, sessionToken: safepayResponse.data.data.token });
     } else {
       res.status(500).json({ success: false, message: "No payment token returned by Safepay" });
     }
