@@ -99,7 +99,7 @@ router.post('/payment', auth, async (req, res) => {
         customer_phone: phoneNumber,
         success_url: `${process.env.FRONTEND_URL}/payment-success/${newOrder._id}`,
         cancel_url: `${process.env.FRONTEND_URL}/payment-cancel/${newOrder._id}`,
-        webhook_url: `${process.env.BACKEND_URL}/api/auth/abhipay-webhook`
+        webhook_url: `${process.env.BACKEND_URL}/api/auth/verify-payment`
       },
       {
         headers: {
@@ -119,6 +119,27 @@ router.post('/payment', auth, async (req, res) => {
   } catch (err) {
     console.error(err.response?.data || err.message);
     res.status(500).json({ success: false, message: 'Payment initiation failed' });
+  }
+});
+
+//Verify-Payment
+router.post('/verify-payment', async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    // You can optionally call AbhiPay API to verify status
+    // For now, rely on webhook status or assume Paid if AbhiPay redirected to success_url
+    if (order.paymentStatus === 'Paid') {
+      return res.json({ success: true });
+    } else {
+      return res.json({ success: false });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
   }
 });
 
