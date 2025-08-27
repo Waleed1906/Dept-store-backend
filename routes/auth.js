@@ -56,59 +56,47 @@ router.post("/login", async (req, res) => {
 router.post("/payment", auth, async (req, res) => {
   try {
     const { fullName, address, phoneNumber, orderData, total } = req.body;
-    if (!total || total <= 0) return res.status(400).json({ success: false, message: "Invalid total amount" });
+    if (!total || total <= 0) 
+      return res.status(400).json({ success: false, message: "Invalid total amount" });
 
     const userId = req.user.id;
     const user = await User.findById(userId).select("email");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Create PaymentIntent
+    // Create Stripe PaymentIntent
     const paymentIntent = await stripeClient.paymentIntents.create({
       amount: Math.round(total * 100),
       currency: "usd",
-      metadata: { userId, fullName },
+      metadata: { 
+        userId, 
+        fullName, 
+        address, 
+        phoneNumber,
+        orderData: JSON.stringify(orderData) // pass order data to webhook via metadata
+      },
       automatic_payment_methods: { enabled: true },
     });
-
-    // Save order with status "Pending"
-    await Order.findOneAndUpdate(
-      { paymentIntentId: paymentIntent.id },
-      {
-        $set: {
-          userId,
-          fullName,
-          email: user.email,
-          address,
-          phoneNumber,
-          paymentMethod: "Card",
-          paymentStatus: "Pending",
-          orderData,
-          total,
-          paymentIntentId: paymentIntent.id,
-        },
-      },
-      { upsert: true, new: true }
-    );
 
     res.json({ success: true, clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error(err);
-    res.json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
+
 
 // ============================
 // Stripe Webhook
 // ============================
 
-router.post("/stripe", async (req, res) => {
+router.post("/stripe", express.raw({type: 'application/json'}), async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
 
   try {
     event = stripeClient.webhooks.constructEvent(
-      req.body, // raw body
-      sig,
+      req.body, 
+      sig, 
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
@@ -121,19 +109,28 @@ router.post("/stripe", async (req, res) => {
 
     switch (event.type) {
       case "payment_intent.succeeded":
-        await Order.findOneAndUpdate(
-          { paymentIntentId: intent.id },
-          { $set: { paymentStatus: "Paid" } }
-        );
+        // Extract metadata
+        const { userId, fullName, address, phoneNumber, orderData } = intent.metadata;
+
+        // Save order in DB
+        await Order.create({
+          userId,
+          fullName,
+          email: (await User.findById(userId)).email,
+          address,
+          phoneNumber,
+          paymentMethod: "Card",
+          paymentStatus: "Paid",
+          orderData: JSON.parse(orderData),
+          total: intent.amount / 100,
+          paymentIntentId: intent.id,
+        });
+
         console.log(`✅ Payment succeeded: ${intent.id}`);
         break;
 
       case "payment_intent.payment_failed":
       case "payment_intent.canceled":
-        await Order.findOneAndUpdate(
-          { paymentIntentId: intent.id },
-          { $set: { paymentStatus: "Failed" } }
-        );
         console.log(`❌ Payment failed/canceled: ${intent.id}`);
         break;
 
@@ -147,6 +144,7 @@ router.post("/stripe", async (req, res) => {
     res.status(500).send("Server error");
   }
 });
+
 
 // ============================
 // Protected route
