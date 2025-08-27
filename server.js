@@ -14,6 +14,7 @@ const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user")
 const Order = require("./models/order")
+
 // Initialize Express app
 const app = express();
 dotenv.config();
@@ -21,7 +22,8 @@ app.use(cors());
 
 // Middleware setup
 
-
+// Use JSON parser for all routes EXCEPT webhook
+app.use('/api/auth/stripe', bodyParser.raw({ type: 'application/json' }));
 app.use(express.json());
 // MongoDB connection
 mongoose

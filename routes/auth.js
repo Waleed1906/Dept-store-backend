@@ -1,153 +1,158 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const User = require('../models/user');
-const Order = require('../models/order');
-const axios = require('axios');
-const router = express.Router();
-const auth = require('../middlewares/auth');
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const User = require("../models/user");
+const Order = require("../models/order");
+const auth = require("../middlewares/auth");
 const dotenv = require("dotenv");
+const Stripe = require("stripe");
+
 dotenv.config();
+const router = express.Router();
+const stripeClient = Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ============================
-// Register a new user
+// Register
 // ============================
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
   try {
     const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
-    }
+    if (userExists) return res.status(400).json({ success: false, message: "User already exists" });
 
     let cart = {};
-    for (let i = 1; i <= 300; i++) {
-      cart[i] = 0;
-    }
+    for (let i = 1; i <= 300; i++) cart[i] = 0;
 
     const newUser = new User({ name, email, password, cartData: cart });
     await newUser.save();
-
-    res.status(201).json({ success: true, message: 'User registered successfully' });
+    res.status(201).json({ success: true, message: "User registered successfully" });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
 // ============================
-// Login user
+// Login
 // ============================
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Register First Kindly!' });
-    }
+    if (!user) return res.status(400).json({ success: false, message: "Register First Kindly!" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ success: false, message: 'Invalid credentials' });
-    }
+    if (!isMatch) return res.status(400).json({ success: false, message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    res.json({ success: true, message: 'User Login successfully!', token, user });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ success: true, message: "User Login successfully!", token, user });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
 // ============================
-// Payment Endpoint (AbhiPay)
+// Payment Endpoint
 // ============================
-router.post('/payment', auth, async (req, res) => {
+router.post("/payment", auth, async (req, res) => {
   try {
     const { fullName, address, phoneNumber, orderData, total } = req.body;
-    const userId = req.user.id || req.user.userId;
+    if (!total || total <= 0) return res.status(400).json({ success: false, message: "Invalid total amount" });
 
-    // Fetch user email
-    const user = await User.findById(userId).select('email');
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const userId = req.user.id;
+    const user = await User.findById(userId).select("email");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Save order with Pending status
-    const newOrder = new Order({
-      userId,
-      fullName,
-      email: user.email,
-      address,
-      phoneNumber,
-      paymentMethod: 'Card',
-      paymentStatus: 'Pending',
-      orderData,
-      total,
+    // Create PaymentIntent
+    const paymentIntent = await stripeClient.paymentIntents.create({
+      amount: Math.round(total * 100),
+      currency: "usd",
+      metadata: { userId, fullName },
+      automatic_payment_methods: { enabled: true },
     });
-    await newOrder.save();
 
-    // ============================
-    // Create AbhiPay order
-    // ============================
-    const abhiPayResponse = await axios.post(
-      'https://api.abhipay.com.pk/api/v2/createOrder'
-,
+    // Save order with status "Pending"
+    await Order.findOneAndUpdate(
+      { paymentIntentId: paymentIntent.id },
       {
-        amount: total,
-        currency: 'PKR',
-        description: `Order #${newOrder._id}`,
-        customer_name: fullName,
-        customer_email: user.email,
-        customer_phone: phoneNumber,
-        success_url: `${process.env.FRONTEND_URL}/payment-success/${newOrder._id}`,
-        cancel_url: `${process.env.FRONTEND_URL}/payment-cancel/${newOrder._id}`,
-        webhook_url: `${process.env.BACKEND_URL}/api/auth/verify-payment`
+        $set: {
+          userId,
+          fullName,
+          email: user.email,
+          address,
+          phoneNumber,
+          paymentMethod: "Card",
+          paymentStatus: "Pending",
+          orderData,
+          total,
+          paymentIntentId: paymentIntent.id,
+        },
       },
-      {
-        headers: {
-          Authorization: process.env.ABHI_PAY_SECRET_KEY,
-          'Content-Type': 'application/json'
-        }
-      }
+      { upsert: true, new: true }
     );
 
-    const { paymentUrl, orderId } = abhiPayResponse.data;
-
-    // Update order with AbhiPay orderId
-    newOrder.abhipayOrderId = orderId;
-    await newOrder.save();
-
-    res.json({ success: true, paymentUrl });
+    res.json({ success: true, clientSecret: paymentIntent.client_secret });
   } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).json({ success: false, message: 'Payment initiation failed' });
+    console.error(err);
+    res.json({ success: false, message: err.message });
   }
 });
 
-//Verify-Payment
-router.post('/verify-payment', async (req, res) => {
+// ============================
+// Stripe Webhook
+// ============================
+
+router.post("/stripe", async (req, res) => {
+  const sig = req.headers["stripe-signature"];
+  let event;
+
   try {
-    const { orderId } = req.body;
-
-    const order = await Order.findById(orderId);
-    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-
-    // You can optionally call AbhiPay API to verify status
-    // For now, rely on webhook status or assume Paid if AbhiPay redirected to success_url
-    if (order.paymentStatus === 'Paid') {
-      return res.json({ success: true });
-    } else {
-      return res.json({ success: false });
-    }
+    event = stripeClient.webhooks.constructEvent(
+      req.body, // raw body
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
+    console.error("Webhook signature verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    const intent = event.data.object;
+
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        await Order.findOneAndUpdate(
+          { paymentIntentId: intent.id },
+          { $set: { paymentStatus: "Paid" } }
+        );
+        console.log(`✅ Payment succeeded: ${intent.id}`);
+        break;
+
+      case "payment_intent.payment_failed":
+      case "payment_intent.canceled":
+        await Order.findOneAndUpdate(
+          { paymentIntentId: intent.id },
+          { $set: { paymentStatus: "Failed" } }
+        );
+        console.log(`❌ Payment failed/canceled: ${intent.id}`);
+        break;
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error("Webhook handling error:", err);
+    res.status(500).send("Server error");
   }
 });
 
 // ============================
 // Protected route
 // ============================
-router.get('/protected', auth, (req, res) => {
-  res.json({ success: true, message: 'Welcome to the protected route!', user: req.user });
+router.get("/protected", auth, (req, res) => {
+  res.json({ success: true, message: "Welcome to the protected route!", user: req.user });
 });
 
 module.exports = router;
