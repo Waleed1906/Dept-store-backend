@@ -10,7 +10,7 @@ const orderSchema = new mongoose.Schema({
   paymentStatus: { type: String, required: true, enum: ['Pending', 'Paid', 'Failed', 'Canceled'], default: 'Pending' },
   orderData: { type: Object, required: true },
   total: { type: Number, required: true },
-  paymentIntentId: { type: String, required: true, unique: true, sparse: true },
+  paymentIntentId: { type: String, unique: true, default: null },
   date: { type: Date, default: Date.now }
 });
 
