@@ -88,7 +88,8 @@ router.post('/payment', auth, async (req, res) => {
     // Create AbhiPay order
     // ============================
     const abhiPayResponse = await axios.post(
-      'https://sandbox.abhipay.com.pk/api/v2/createOrder',
+      'https://api.abhipay.com.pk/api/v2/createOrder'
+,
       {
         amount: total,
         currency: 'PKR',
