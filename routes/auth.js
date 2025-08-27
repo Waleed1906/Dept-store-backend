@@ -6,7 +6,6 @@ const Order = require("../models/order");
 const auth = require("../middlewares/auth");
 const dotenv = require("dotenv");
 const Stripe = require("stripe");
-
 dotenv.config();
 const router = express.Router();
 const stripeClient = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -127,6 +126,10 @@ router.post("/stripe", express.raw({type: 'application/json'}), async (req, res)
         });
 
         console.log(`✅ Payment succeeded: ${intent.id}`);
+        // Reset user's cart in DB to default (empty)
+        const emptyCart = {};
+        for (let i = 1; i <= 300; i++) emptyCart[i] = 0;
+        await User.findByIdAndUpdate(userId, { cartData: emptyCart });
         break;
 
       case "payment_intent.payment_failed":
