@@ -349,7 +349,8 @@ app.post("/create-order", auth, async (req, res) => {
       paymentMethod: paymentMethod,
       paymentStatus: paymentStatus,
       orderData: orderData,
-      total: total
+      total: total,
+      paymentIntentId: paymentMethod === "Card" ? req.body.paymentIntentId : null
     });
 
     await newOrder.save();
