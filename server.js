@@ -356,6 +356,10 @@ app.post("/create-order", auth, async (req, res) => {
     await newOrder.save();
 
     res.status(201).json({ message: "Order created successfully", order: newOrder });
+    // Reset user's cart in DB to default (empty)
+     const emptyCart = {};
+     for (let i = 1; i <= 300; i++) emptyCart[i] = 0;
+     await user.findByIdAndUpdate(userId, { cartData: emptyCart });
   } catch (error) {
     console.error("Error creating order:", error);
     res.status(500).json({ message: "Dear Customer You already placed ordered with Same Payment Method" });
