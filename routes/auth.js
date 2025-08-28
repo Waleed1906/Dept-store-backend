@@ -148,6 +148,23 @@ router.post("/stripe", express.raw({type: 'application/json'}), async (req, res)
   }
 });
 
+//Endpoint to get Order History From DB
+router.get("/order-history", auth, async (req, res) => {
+  try {
+    const userId = req.user.id; // from auth middleware
+
+    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ success: false, message: "No orders found" });
+    }
+
+    res.json({ success: true, orders });
+  } catch (err) {
+    console.error("Error fetching order history:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 // ============================
 // Protected route
