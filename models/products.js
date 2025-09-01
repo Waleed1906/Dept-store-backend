@@ -19,7 +19,6 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      lowercase: true, // normalize categories (e.g., "Grocery" -> "grocery")
     },
     new_price: {
       type: Number,
