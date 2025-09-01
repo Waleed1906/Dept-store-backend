@@ -208,7 +208,7 @@ app.get("/LatestItems", async (req, res) => {
 // Endpoint for Popular in Fruits and Vegetables
 app.get("/popularinvegetables", async (req, res) => {
   try {
-    let products = await Product.find({ category: "Fruits_Vegetables" });
+    let products = await Product.find({ category: "fruits_vegetables" });
     let popularinvegetables = products.slice(0, 3);
     console.log("Popular in Fruits and Vegetables Fetched");
     res.json(popularinvegetables);
