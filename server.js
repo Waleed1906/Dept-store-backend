@@ -15,7 +15,7 @@ const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user")
 const Order = require("./models/order")
 const Product = require("./models/products")
-const chatbotRoutes = require("./routes/geminiService");
+
 // Initialize Express app
 const app = express();
 dotenv.config();
@@ -39,7 +39,7 @@ mongoose
 
 // Use Routes
 app.use("/api/auth", authRoutes);
-app.use("/chatbot", chatbotRoutes);
+
 
 
 // Root route
