@@ -14,7 +14,8 @@ const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user")
 const Order = require("./models/order")
-
+const Product = require("./models/products")
+const chatbotRoutes = require("./routes/geminiService");
 // Initialize Express app
 const app = express();
 dotenv.config();
@@ -38,6 +39,8 @@ mongoose
 
 // Use Routes
 app.use("/api/auth", authRoutes);
+app.use("/chatbot", chatbotRoutes);
+
 
 // Root route
 app.get("/", (req, res) => {
@@ -78,41 +81,7 @@ app.post("/upload", upload.single("product"), (req, res) => {
   });
 });
 
-// Product Schema
-const Product = mongoose.model("product", {
-  id: {
-    type: Number,
-    required: true,
-  },
-  name: {
-    type: String,
-    required: true,
-  },
-  image: {
-    type: String,
-    required: true,
-  },
-  category: {
-    type: String,
-    required: true,
-  },
-  new_price: {
-    type: Number,
-    required: true,
-  },
-  old_price: {
-    type: Number,
-    required: true,
-  },
-  date: {
-    type: Date,
-    default: Date.now,
-  },
-  available: {
-    type: Boolean,
-    default: true,
-  },
-});
+
 
 // Add Product Endpoint
 app.post("/addproduct", async (req, res) => {
