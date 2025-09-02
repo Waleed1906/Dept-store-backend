@@ -1,6 +1,7 @@
-const jwt = require("jsonwebtoken");
+// middlewares/auth.js
+import jwt from "jsonwebtoken";
 
-module.exports = (req, res, next) => {
+const auth = (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
   if (!token) {
     return res
@@ -9,21 +10,20 @@ module.exports = (req, res, next) => {
   }
 
   try {
-    console.log("Token received:", token); // Add this line for debugging
+    console.log("Token received:", token); // Debugging
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-
-    // Remove 'iat' from decoded token if needed
+    // Remove 'iat' if not needed
     delete decoded.iat;
 
-   
-    
-    // You can pass the modified decoded token to the next middleware/route handler
+    // Pass decoded token to next middleware
     req.user = decoded;
 
-    next(); // Proceed to the next middleware or route
+    next(); // Proceed
   } catch (err) {
-    console.error("Token verification error:", err); // Add this line for debugging
+    console.error("Token verification error:", err); // Debugging
     return res.status(400).json({ message: "Invalid token", err });
   }
 };
+
+export default auth;

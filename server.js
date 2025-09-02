@@ -1,287 +1,184 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-const bodyParser = require("body-parser");
-const nodemailer = require("nodemailer");
-const authRoutes = require("./routes/auth");
-const jwt = require("jsonwebtoken");
-const multer = require("multer");
-const path = require("path");
-const auth = require("./middlewares/auth");
-const cors = require('cors');
-const fs = require("fs");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("cloudinary").v2; // Import Cloudinary
-const user = require("./models/user")
-const Order = require("./models/order")
-const Product = require("./models/products")
-const Chat = require("./models/Chat")
-// Initialize Express app
-const app = express();
+// server.js
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import bodyParser from "body-parser";
+import nodemailer from "nodemailer";
+import authRoutes from "./routes/auth.js";
+import jwt from "jsonwebtoken";
+import multer from "multer";
+import path from "path";
+import auth from "./middlewares/auth.js";
+import cors from "cors";
+import fs from "fs";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { v2 as cloudinary } from "cloudinary";
+import user from "./models/user.js";
+import Order from "./models/order.js";
+import Product from "./models/products.js";
+import Chat from "./models/Chat.js";
+import GeminiService from "./routes/GeminiService.js";
+
 dotenv.config();
+const app = express();
 app.use(cors());
 
 // Middleware setup
-
-// Use JSON parser for all routes EXCEPT webhook
-app.use('/api/auth/stripe', bodyParser.raw({ type: 'application/json' }));
+app.use("/api/auth/stripe", bodyParser.raw({ type: "application/json" }));
 app.use(express.json());
-// MongoDB connection (updated for v4+)
+
+// MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB connection error:", err));
 
-// Use Routes
+// Routes
 app.use("/api/auth", authRoutes);
-
-
-
+app.use("/chat", GeminiService);
 
 // Root route
 app.get("/", (req, res) => {
-  res.send(
-    "Ahmad Yaseen-BSCS-F20-378,Muhammad Ahmad-BSCS-F20-283"
-  );
+  res.send("Ahmad Yaseen-BSCS-F20-378,Muhammad Ahmad-BSCS-F20-283");
 });
 
 // Cloudinary configuration
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, // Your Cloudinary cloud name
-  api_key: process.env.CLOUDINARY_API_KEY, // Your Cloudinary API key
-  api_secret: process.env.CLOUDINARY_API_SECRET, // Your Cloudinary API secret
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Set up Cloudinary storage engine
+// Cloudinary storage engine
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: "product_images", // Cloudinary folder where images will be saved
-    format: async (req, file) => path.extname(file.originalname).substring(1), // Automatically determine the file format
-    public_id: (req, file) => `${file.fieldname}_${Date.now()}`, // Set file name
+    folder: "product_images",
+    format: async (req, file) => path.extname(file.originalname).substring(1),
+    public_id: (req, file) => `${file.fieldname}_${Date.now()}`,
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
-// Upload endpoint for images
+// Upload endpoint
 app.post("/upload", upload.single("product"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, message: "Image upload failed" });
-  }
-
-  // Cloudinary URL is automatically provided by req.file.path
-  res.json({
-    success: 1,
-    image_url: req.file.path, // Cloudinary URL for the uploaded image
-  });
+  if (!req.file) return res.status(400).json({ success: false, message: "Image upload failed" });
+  res.json({ success: 1, image_url: req.file.path });
 });
 
-
-
-// Add Product Endpoint
+// Add Product
 app.post("/addproduct", async (req, res) => {
   try {
-    let last_product = await Product.findOne().sort({ id: -1 });
-    let id = last_product ? last_product.id + 1 : 1;
-
-    const product = new Product({
-      id: id,
-      name: req.body.name,
-      image: req.body.image,
-      category: req.body.category,
-      new_price: req.body.new_price,
-      old_price: req.body.old_price,
-    });
-
+    const last_product = await Product.findOne().sort({ id: -1 });
+    const id = last_product ? last_product.id + 1 : 1;
+    const product = new Product({ id, ...req.body });
     const savedProduct = await product.save();
-
-    res.json({
-      success: true,
-      product: savedProduct,
-    });
+    res.json({ success: true, product: savedProduct });
   } catch (error) {
     console.error("Error saving product:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
-// Delete Product Endpoint
+
+// Remove Product
 app.post("/removeproduct/:id", async (req, res) => {
   try {
     const productId = req.params.id;
-    if (!productId) {
-      return res.status(400).json({
-        success: false,
-        message: "Product ID is missing",
-      });
-    }
+    if (!productId) return res.status(400).json({ success: false, message: "Product ID is missing" });
 
-    // Find the product to get the image URL
     const deletedProduct = await Product.findOneAndDelete({ id: productId });
-    if (!deletedProduct) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
+    if (!deletedProduct) return res.status(404).json({ success: false, message: "Product not found" });
 
-    // Extract the public ID from the Cloudinary image URL
     const imageUrl = deletedProduct.image;
-    const publicId = imageUrl.split('/').pop().split('.')[0]; // Extract the public ID from the URL
+    const publicId = imageUrl.split("/").pop().split(".")[0];
 
-    // Delete the image from Cloudinary
     await cloudinary.uploader.destroy(`product_images/${publicId}`, (error, result) => {
-      if (error) {
-        console.error("Cloudinary image deletion error:", error);
-        return res.status(500).json({
-          success: false,
-          message: "Error deleting image from Cloudinary",
-        });
-      }
-      console.log("Image deleted from Cloudinary:", result);
+      if (error) console.error("Cloudinary image deletion error:", error);
+      else console.log("Image deleted from Cloudinary:", result);
     });
 
-    console.log("Product and image removed:", deletedProduct);
-    res.json({
-      success: true,
-      message: "Product removed successfully",
-      name: deletedProduct.name,
-    });
+    res.json({ success: true, message: "Product removed successfully", name: deletedProduct.name });
   } catch (error) {
     console.error("Error removing product:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error occurred while removing the product",
-    });
+    res.status(500).json({ success: false, message: "Server error occurred while removing the product" });
   }
 });
 
-
-// Get all products
+// All Products
 app.get("/allproducts", async (req, res) => {
   try {
-    let products = await Product.find({});
+    const products = await Product.find({});
     console.log("All Products Fetched");
     res.json(products);
   } catch (error) {
     console.error("Error fetching products:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching products",
-    });
+    res.status(500).json({ success: false, message: "Error fetching products" });
   }
 });
 
-// Endpoint for Our Latest Items (one latest item per category)
+// Latest Items
 app.get("/LatestItems", async (req, res) => {
   try {
-    let products = await Product.find({}).sort({ date: -1 });
-
-    let latestItemsByCategory = new Map();
-
-    products.forEach((product) => {
-      if (!latestItemsByCategory.has(product.category)) {
-        latestItemsByCategory.set(product.category, product);
-      }
-    });
-
-    let latestItems = Array.from(latestItemsByCategory.values());
-
-    console.log("Latest Items by Category Fetched");
-    res.json(latestItems);
+    const products = await Product.find({}).sort({ date: -1 });
+    const latestItemsByCategory = new Map();
+    products.forEach(p => { if (!latestItemsByCategory.has(p.category)) latestItemsByCategory.set(p.category, p); });
+    res.json(Array.from(latestItemsByCategory.values()));
   } catch (error) {
     console.error("Error fetching latest items:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching latest items",
-    });
+    res.status(500).json({ success: false, message: "Error fetching latest items" });
   }
 });
 
-// Endpoint for Popular in Fruits and Vegetables
+// Popular Vegetables
 app.get("/popularinvegetables", async (req, res) => {
   try {
-    let products = await Product.find({ category: "Fruits_Vegetables" });
-    let popularinvegetables = products.slice(0, 3);
-    console.log("Popular in Fruits and Vegetables Fetched");
-    res.json(popularinvegetables);
+    const products = await Product.find({ category: "Fruits_Vegetables" });
+    res.json(products.slice(0, 3));
   } catch (error) {
     console.error("Error fetching popular vegetables:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching popular vegetables",
-    });
+    res.status(500).json({ success: false, message: "Error fetching popular vegetables" });
   }
 });
 
-// Get new products
+// New Products
 app.get("/newproducts", async (req, res) => {
   try {
-    let newproducts = await Product.find().sort({ date: -1 }).limit(8);
-    console.log("New Products Fetched");
+    const newproducts = await Product.find().sort({ date: -1 }).limit(8);
     res.json(newproducts);
   } catch (error) {
     console.error("Error fetching new products:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching new products",
-    });
+    res.status(500).json({ success: false, message: "Error fetching new products" });
   }
 });
-// Endpoint for Add to Cart save data to MongoDB
+
+// Cart Endpoints
 app.post("/addtocart", auth, async (req, res) => {
-  console.log("Added",req.body.itemId);
-  let userData = await user.findOne({_id:req.user.id});
+  const userData = await user.findOne({ _id: req.user.id });
   userData.cartData[req.body.itemId] += 1;
-  await user.findOneAndUpdate({_id:req.user.id},{cartData:userData.cartData});
-  res.send("Added")
+  await user.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
+  res.send("Added");
+});
 
-})
-
-// Endpoint for Remove from Cart save data to MongoDB
 app.post("/removetocart", auth, async (req, res) => {
-  console.log("removed",req.body.itemId);
-  let userData = await user.findOne({_id:req.user.id});
-  if(userData.cartData[req.body.itemId]>0)
-  userData.cartData[req.body.itemId] = 0;
-  await user.findOneAndUpdate({_id:req.user.id},{cartData:userData.cartData});
-  res.send("Removed")
-
-})
-// Enpoint to get Cartdata
+  const userData = await user.findOne({ _id: req.user.id });
+  if (userData.cartData[req.body.itemId] > 0) userData.cartData[req.body.itemId] = 0;
+  await user.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
+  res.send("Removed");
+});
 
 app.post("/getcart", auth, async (req, res) => {
-  console.log("GetCart");
-  let userData = await user.findOne({_id:req.user.id});
+  const userData = await user.findOne({ _id: req.user.id });
   res.json(userData.cartData);
+});
 
-})
-// Endpoint for Add to Cart save data to MongoDB
 app.post("/updatecart", auth, async (req, res) => {
   try {
     const { itemId, quantity } = req.body;
-
-    // Find the user by their ID
-    let userData = await user.findOne({ _id: req.user.id });
-    
-    // Ensure cartData exists
-    if (!userData.cartData) {
-      return res.status(400).json({ message: "Cart data not found." });
-    }
-
-    // Check if the item exists in the cart
-    if (!(itemId in userData.cartData)) {
-      return res.status(404).json({ message: "Item not found in the cart." });
-    }
-
-    // Update the item's quantity in the cart
+    const userData = await user.findOne({ _id: req.user.id });
+    if (!userData.cartData) return res.status(400).json({ message: "Cart data not found." });
+    if (!(itemId in userData.cartData)) return res.status(404).json({ message: "Item not found in the cart." });
     userData.cartData[itemId] = quantity;
-
-    // Save the updated cart data to the database
     await user.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
-
     res.json({ message: "Cart updated successfully." });
   } catch (error) {
     console.error("Error updating cart:", error);
@@ -289,56 +186,45 @@ app.post("/updatecart", auth, async (req, res) => {
   }
 });
 
-//Endpoint to Create Order 
+// Create Order
 app.post("/create-order", auth, async (req, res) => {
   try {
-    // Get user info from JWT
     const userId = req.user.id;
-   // Fetch email from database
     const userData = await user.findById(userId).select("email");
     if (!userData) return res.status(404).json({ message: "User not found" });
 
-    
-
-    // Extract order info from request body
-    const { address, phoneNumber, paymentMethod, paymentStatus, orderData, total,fullName } = req.body;
-
-    // Create new order
+    const { address, phoneNumber, paymentMethod, paymentStatus, orderData, total, fullName } = req.body;
     const newOrder = new Order({
-      userId: userId,
-      fullName: fullName,
+      userId,
+      fullName,
       email: userData.email,
-      address: address,
-      phoneNumber: phoneNumber,
-      paymentMethod: paymentMethod,
-      paymentStatus: paymentStatus,
-      orderData: orderData,
-      total: total,
-      paymentIntentId: paymentMethod === "Card" ? req.body.paymentIntentId : null
+      address,
+      phoneNumber,
+      paymentMethod,
+      paymentStatus,
+      orderData,
+      total,
+      paymentIntentId: paymentMethod === "Card" ? req.body.paymentIntentId : null,
     });
 
     await newOrder.save();
-
     res.status(201).json({ message: "Order created successfully", order: newOrder });
-    // Reset user's cart in DB to default (empty)
-     const emptyCart = {};
-     for (let i = 1; i <= 300; i++) emptyCart[i] = 0;
-     await user.findByIdAndUpdate(userId, { cartData: emptyCart });
+
+    // Reset cart
+    const emptyCart = {};
+    for (let i = 1; i <= 300; i++) emptyCart[i] = 0;
+    await user.findByIdAndUpdate(userId, { cartData: emptyCart });
   } catch (error) {
     console.error("Error creating order:", error);
     res.status(500).json({ message: "Dear Customer You already placed ordered with Same Payment Method" });
   }
 });
 
-
-
-
-
 // Protected Route Example
 app.get("/api/auth/protected", auth, (req, res) => {
   res.status(200).json({ message: "Token is valid", user: req.user });
 });
 
-// Server setup
+// Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

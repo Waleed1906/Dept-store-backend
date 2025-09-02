@@ -1,11 +1,14 @@
-const express = require("express");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const User = require("../models/user");
-const Order = require("../models/order");
-const auth = require("../middlewares/auth");
-const dotenv = require("dotenv");
-const Stripe = require("stripe");
+// routes/auth.js
+import express from "express";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import dotenv from "dotenv";
+import Stripe from "stripe";
+
+import User from "../models/user.js";
+import Order from "../models/order.js";
+import auth from "../middlewares/auth.js";
+
 dotenv.config();
 const router = express.Router();
 const stripeClient = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -17,7 +20,8 @@ router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
   try {
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ success: false, message: "User already exists" });
+    if (userExists)
+      return res.status(400).json({ success: false, message: "User already exists" });
 
     let cart = {};
     for (let i = 1; i <= 300; i++) cart[i] = 0;
@@ -37,10 +41,12 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ success: false, message: "Register First Kindly!" });
+    if (!user)
+      return res.status(400).json({ success: false, message: "Register First Kindly!" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ success: false, message: "Invalid credentials" });
+    if (!isMatch)
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
     res.json({ success: true, message: "User Login successfully!", token, user });
@@ -55,23 +61,22 @@ router.post("/login", async (req, res) => {
 router.post("/payment", auth, async (req, res) => {
   try {
     const { fullName, address, phoneNumber, orderData, total } = req.body;
-    if (!total || total <= 0) 
+    if (!total || total <= 0)
       return res.status(400).json({ success: false, message: "Invalid total amount" });
 
     const userId = req.user.id;
     const user = await User.findById(userId).select("email");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Create Stripe PaymentIntent
     const paymentIntent = await stripeClient.paymentIntents.create({
       amount: Math.round(total * 100),
       currency: "usd",
-      metadata: { 
-        userId, 
-        fullName, 
-        address, 
+      metadata: {
+        userId,
+        fullName,
+        address,
         phoneNumber,
-        orderData: JSON.stringify(orderData) // pass order data to webhook via metadata
+        orderData: JSON.stringify(orderData),
       },
       automatic_payment_methods: { enabled: true },
     });
@@ -83,19 +88,17 @@ router.post("/payment", auth, async (req, res) => {
   }
 });
 
-
 // ============================
 // Stripe Webhook
 // ============================
-
-router.post("/stripe", express.raw({type: 'application/json'}), async (req, res) => {
+router.post("/stripe", express.raw({ type: "application/json" }), async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
 
   try {
     event = stripeClient.webhooks.constructEvent(
-      req.body, 
-      sig, 
+      req.body,
+      sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
@@ -108,10 +111,8 @@ router.post("/stripe", express.raw({type: 'application/json'}), async (req, res)
 
     switch (event.type) {
       case "payment_intent.succeeded":
-        // Extract metadata
         const { userId, fullName, address, phoneNumber, orderData } = intent.metadata;
 
-        // Save order in DB
         await Order.create({
           userId,
           fullName,
@@ -126,7 +127,7 @@ router.post("/stripe", express.raw({type: 'application/json'}), async (req, res)
         });
 
         console.log(`✅ Payment succeeded: ${intent.id}`);
-        // Reset user's cart in DB to default (empty)
+
         const emptyCart = {};
         for (let i = 1; i <= 300; i++) emptyCart[i] = 0;
         await User.findByIdAndUpdate(userId, { cartData: emptyCart });
@@ -148,16 +149,16 @@ router.post("/stripe", express.raw({type: 'application/json'}), async (req, res)
   }
 });
 
-//Endpoint to get Order History From DB
+// ============================
+// Order History
+// ============================
 router.get("/order-history", auth, async (req, res) => {
   try {
-    const userId = req.user.id; // from auth middleware
-
+    const userId = req.user.id;
     const orders = await Order.find({ userId }).sort({ createdAt: -1 });
 
-    if (!orders || orders.length === 0) {
+    if (!orders || orders.length === 0)
       return res.status(404).json({ success: false, message: "No orders found" });
-    }
 
     res.json({ success: true, orders });
   } catch (err) {
@@ -173,4 +174,4 @@ router.get("/protected", auth, (req, res) => {
   res.json({ success: true, message: "Welcome to the protected route!", user: req.user });
 });
 
-module.exports = router;
+export default router;
