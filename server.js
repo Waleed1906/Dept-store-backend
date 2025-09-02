@@ -15,7 +15,7 @@ const cloudinary = require("cloudinary").v2; // Import Cloudinary
 const user = require("./models/user")
 const Order = require("./models/order")
 const Product = require("./models/products")
-
+const Chat = require("./models/Chat")
 // Initialize Express app
 const app = express();
 dotenv.config();
