@@ -115,12 +115,17 @@ router.post("/message", auth, async (req, res) => {
         )
         .join("\n\n");
     } else {
-      // Use Gemini AI for other queries
+      // ----- STREAMING Gemini AI -----
       try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        const result = await model.generateContent({
+        // Streaming headers
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+
+        const stream = await model.generateContentStream({
           contents: [
             {
               role: "user",
@@ -133,22 +138,48 @@ If the user asks something unrelated, politely say:
 
 User query: ${message}
 Available products:\n${allProducts.map((p) => `${p.name} (Rs ${p.new_price})`).join("\n")}
-                `,
+                  `,
                 },
               ],
             },
           ],
         });
 
-        const response = await result.response;
-        botReply = response.text();
+        let botReply = "";
+
+        for await (const chunk of stream.stream) {
+          const chunkText = chunk.text();
+          if (chunkText) {
+            botReply += chunkText;
+            res.write(`data: ${chunkText}\n\n`); // send partial reply
+          }
+        }
+
+        res.write("event: end\ndata: [DONE]\n\n");
+        res.end();
+
+        // Save chat history
+        const userMessageObj = { sender: "user", text: message };
+        const botMessageObj = { sender: "bot", text: botReply };
+
+        let chatDoc = await Chat.findOne({ userId });
+        if (chatDoc) {
+          chatDoc.messages.push(userMessageObj, botMessageObj);
+        } else {
+          chatDoc = new Chat({ userId, messages: [userMessageObj, botMessageObj] });
+        }
+        await chatDoc.save();
+        return; // avoid res.json since we already streamed
       } catch (error) {
         console.error("Gemini API Error:", error);
-        botReply = "⚠️ Oops! Something went wrong. Please try again.";
+        res.write("data: ⚠️ Oops! Something went wrong. Please try again.\n\n");
+        res.write("event: end\ndata: [DONE]\n\n");
+        res.end();
+        return;
       }
     }
 
-    // ----- Save Chat History -----
+    // ----- Save Chat History (non-stream cases) -----
     const userMessageObj = { sender: "user", text: message };
     const botMessageObj = { sender: "bot", text: botReply };
 
