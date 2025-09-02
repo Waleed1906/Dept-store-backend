@@ -1,8 +1,8 @@
 // models/order.js
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
-  email: { type: String, required: true, trim: true },       
+  email: { type: String, required: true, trim: true },
   userId: { type: String, required: true },
   fullName: { type: String, required: true, trim: true },
   phoneNumber: { type: String, required: true, trim: true },
@@ -15,4 +15,4 @@ const orderSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now }
 });
 
-export default mongoose.model("Order", orderSchema);
+module.exports = mongoose.model("Order", orderSchema);

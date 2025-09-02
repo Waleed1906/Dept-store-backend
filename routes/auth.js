@@ -1,13 +1,13 @@
 // routes/auth.js
-import express from "express";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import dotenv from "dotenv";
-import Stripe from "stripe";
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const dotenv = require("dotenv");
+const Stripe = require("stripe");
 
-import User from "../models/user.js";
-import Order from "../models/order.js";
-import auth from "../middlewares/auth.js";
+const User = require("../models/user");
+const Order = require("../models/order");
+const auth = require("../middlewares/auth");
 
 dotenv.config();
 const router = express.Router();
@@ -174,4 +174,4 @@ router.get("/protected", auth, (req, res) => {
   res.json({ success: true, message: "Welcome to the protected route!", user: req.user });
 });
 
-export default router;
+module.exports = router;

@@ -1,23 +1,24 @@
 // server.js
-import express from "express";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import bodyParser from "body-parser";
-import nodemailer from "nodemailer";
-import authRoutes from "./routes/auth.js";
-import jwt from "jsonwebtoken";
-import multer from "multer";
-import path from "path";
-import auth from "./middlewares/auth.js";
-import cors from "cors";
-import fs from "fs";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import { v2 as cloudinary } from "cloudinary";
-import user from "./models/user.js";
-import Order from "./models/order.js";
-import Product from "./models/products.js";
-import Chat from "./models/Chat.js";
-import GeminiService from "./routes/GeminiService.js";
+const express = require("express");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const bodyParser = require("body-parser");
+const nodemailer = require("nodemailer");
+const authRoutes = require("./routes/auth");
+const jwt = require("jsonwebtoken");
+const multer = require("multer");
+const path = require("path");
+const auth = require("./middlewares/auth");
+const cors = require("cors");
+const fs = require("fs");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const { v2: cloudinary } = require("cloudinary");
+
+const user = require("./models/user");
+const Order = require("./models/order");
+const Product = require("./models/products");
+const Chat = require("./models/Chat");
+
 
 dotenv.config();
 const app = express();
@@ -28,17 +29,20 @@ app.use("/api/auth/stripe", bodyParser.raw({ type: "application/json" }));
 app.use(express.json());
 
 // MongoDB connection
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error("MongoDB connection error:", err));
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/chat", GeminiService);
+
 
 // Root route
 app.get("/", (req, res) => {
-  res.send("Ahmad Yaseen-BSCS-F20-378,Muhammad Ahmad-BSCS-F20-283");
+  res.send(
+    "Ahmad Yaseen-BSCS-F20-378,Muhammad Ahmad-BSCS-F20-283"
+  );
 });
 
 // Cloudinary configuration
@@ -62,7 +66,10 @@ const upload = multer({ storage });
 
 // Upload endpoint
 app.post("/upload", upload.single("product"), (req, res) => {
-  if (!req.file) return res.status(400).json({ success: false, message: "Image upload failed" });
+  if (!req.file)
+    return res
+      .status(400)
+      .json({ success: false, message: "Image upload failed" });
   res.json({ success: 1, image_url: req.file.path });
 });
 
@@ -76,7 +83,9 @@ app.post("/addproduct", async (req, res) => {
     res.json({ success: true, product: savedProduct });
   } catch (error) {
     console.error("Error saving product:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res
+      .status(500)
+      .json({ success: false, message: error.message });
   }
 });
 
@@ -84,23 +93,38 @@ app.post("/addproduct", async (req, res) => {
 app.post("/removeproduct/:id", async (req, res) => {
   try {
     const productId = req.params.id;
-    if (!productId) return res.status(400).json({ success: false, message: "Product ID is missing" });
+    if (!productId)
+      return res
+        .status(400)
+        .json({ success: false, message: "Product ID is missing" });
 
     const deletedProduct = await Product.findOneAndDelete({ id: productId });
-    if (!deletedProduct) return res.status(404).json({ success: false, message: "Product not found" });
+    if (!deletedProduct)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
 
     const imageUrl = deletedProduct.image;
     const publicId = imageUrl.split("/").pop().split(".")[0];
 
-    await cloudinary.uploader.destroy(`product_images/${publicId}`, (error, result) => {
-      if (error) console.error("Cloudinary image deletion error:", error);
-      else console.log("Image deleted from Cloudinary:", result);
-    });
+    await cloudinary.uploader.destroy(
+      `product_images/${publicId}`,
+      (error, result) => {
+        if (error) console.error("Cloudinary image deletion error:", error);
+        else console.log("Image deleted from Cloudinary:", result);
+      }
+    );
 
-    res.json({ success: true, message: "Product removed successfully", name: deletedProduct.name });
+    res.json({
+      success: true,
+      message: "Product removed successfully",
+      name: deletedProduct.name,
+    });
   } catch (error) {
     console.error("Error removing product:", error);
-    res.status(500).json({ success: false, message: "Server error occurred while removing the product" });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error occurred while removing the product" });
   }
 });
 
@@ -112,7 +136,9 @@ app.get("/allproducts", async (req, res) => {
     res.json(products);
   } catch (error) {
     console.error("Error fetching products:", error);
-    res.status(500).json({ success: false, message: "Error fetching products" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching products" });
   }
 });
 
@@ -121,11 +147,16 @@ app.get("/LatestItems", async (req, res) => {
   try {
     const products = await Product.find({}).sort({ date: -1 });
     const latestItemsByCategory = new Map();
-    products.forEach(p => { if (!latestItemsByCategory.has(p.category)) latestItemsByCategory.set(p.category, p); });
+    products.forEach((p) => {
+      if (!latestItemsByCategory.has(p.category))
+        latestItemsByCategory.set(p.category, p);
+    });
     res.json(Array.from(latestItemsByCategory.values()));
   } catch (error) {
     console.error("Error fetching latest items:", error);
-    res.status(500).json({ success: false, message: "Error fetching latest items" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching latest items" });
   }
 });
 
@@ -136,7 +167,9 @@ app.get("/popularinvegetables", async (req, res) => {
     res.json(products.slice(0, 3));
   } catch (error) {
     console.error("Error fetching popular vegetables:", error);
-    res.status(500).json({ success: false, message: "Error fetching popular vegetables" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching popular vegetables" });
   }
 });
 
@@ -147,7 +180,9 @@ app.get("/newproducts", async (req, res) => {
     res.json(newproducts);
   } catch (error) {
     console.error("Error fetching new products:", error);
-    res.status(500).json({ success: false, message: "Error fetching new products" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching new products" });
   }
 });
 
