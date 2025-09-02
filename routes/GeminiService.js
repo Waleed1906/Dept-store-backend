@@ -7,6 +7,7 @@ import axios from "axios";
 import { BufferMemory } from "langchain/memory";
 import { ConversationChain } from "langchain/chains";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import auth from "../middlewares/auth.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const BACKEND_URL = "https://dept-store-backend.vercel.app";
@@ -74,9 +75,10 @@ const getProductsText = async () => {
 };
 
 // POST /api/chat
-router.post("/", async (req, res) => {
+router.post("/", auth, async (req, res) => {
   try {
-    const { userId, message } = req.body;
+    const { userId} = req.user;
+    const   {message } = req.body;
 
     // 1️⃣ Fetch/create chat
     let chat = await Chat.findOne({ userId });
