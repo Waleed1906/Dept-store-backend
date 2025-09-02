@@ -13,11 +13,11 @@ const cors = require("cors");
 const fs = require("fs");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const { v2: cloudinary } = require("cloudinary");
-
 const user = require("./models/user");
 const Order = require("./models/order");
 const Product = require("./models/products");
 const Chat = require("./models/Chat");
+const ChatHistory = require("./routes/ChatHistory")
 
 
 dotenv.config();
@@ -36,7 +36,8 @@ mongoose
 
 // Routes
 app.use("/api/auth", authRoutes);
-
+//ChatHistory Route 
+app.use("/chat", ChatHistory);
 
 // Root route
 app.get("/", (req, res) => {
