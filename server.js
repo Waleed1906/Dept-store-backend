@@ -26,19 +26,14 @@ app.use(cors());
 // Use JSON parser for all routes EXCEPT webhook
 app.use('/api/auth/stripe', bodyParser.raw({ type: 'application/json' }));
 app.use(express.json());
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+// MongoDB connection (updated for v4+)
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-  });
+  .catch(err => console.error("MongoDB connection error:", err));
 
 // Use Routes
 app.use("/api/auth", authRoutes);
+
 
 
 
